@@ -25,10 +25,10 @@ AOmegaProjectile::AOmegaProjectile()
 	ProjectileMovement->InitialSpeed = 3000.f;
 	ProjectileMovement->MaxSpeed = 3000.f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->bShouldBounce = true;
+	ProjectileMovement->bShouldBounce = false;
 
 	// Die after 3 seconds by default
-	InitialLifeSpan = 3.0f;
+	InitialLifeSpan = 3.f;
 }
 
 void AOmegaProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
