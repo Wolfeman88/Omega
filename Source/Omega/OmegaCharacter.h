@@ -83,6 +83,7 @@ public:
 protected:
 	
 	/** Fires a projectile. */
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
 	void OnFire();
 
 	/** Resets HMD orientation and position in VR. */
