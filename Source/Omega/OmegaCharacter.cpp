@@ -10,6 +10,7 @@
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
+#include "Classes/GameFramework/CharacterMovementComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -59,11 +60,11 @@ AOmegaCharacter::AOmegaCharacter()
 	// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
 
 	// Create VR Controllers.
-	R_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("R_MotionController"));
-	R_MotionController->Hand = EControllerHand::Right;
-	R_MotionController->SetupAttachment(RootComponent);
-	L_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("L_MotionController"));
-	L_MotionController->SetupAttachment(RootComponent);
+	//R_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("R_MotionController"));
+	//R_MotionController->Hand = EControllerHand::Right;
+	//R_MotionController->SetupAttachment(RootComponent);
+	//L_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("L_MotionController"));
+	//L_MotionController->SetupAttachment(RootComponent);
 
 	// Create a gun and attach it to the right-hand VR controller.
 	// Create a gun mesh component
@@ -91,21 +92,86 @@ void AOmegaCharacter::BeginPlay()
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
 	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 
-	// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
-	if (bUsingMotionControllers)
+	normalHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
+
+	//// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
+	//if (bUsingMotionControllers)
+	//{
+	//	VR_Gun->SetHiddenInGame(false, true);
+	//	Mesh1P->SetHiddenInGame(true, true);
+	//}
+	//else
+	//{
+	//	VR_Gun->SetHiddenInGame(true, true);
+	//	Mesh1P->SetHiddenInGame(false, true);
+	//}
+}
+
+void AOmegaCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (bDoQuickTurn)
 	{
-		VR_Gun->SetHiddenInGame(false, true);
-		Mesh1P->SetHiddenInGame(true, true);
-	}
-	else
-	{
-		VR_Gun->SetHiddenInGame(true, true);
-		Mesh1P->SetHiddenInGame(false, true);
+		if (quickTurnDelta > 0.f)
+		{
+			float turnRate = quickTurnRateScale * DeltaSeconds * BaseTurnRate * ((quickTurnDirection == EQuickTurnDirection::QTD_LEFT) ? -1 : 1);
+			float absTurnRate = FMath::Abs<float>(turnRate);
+			turnRate = (quickTurnDelta - absTurnRate >= 0.f) ? turnRate : ((turnRate * quickTurnDelta) / absTurnRate);
+
+			float inputYawScale = UGameplayStatics::GetPlayerController(this, 0)->InputYawScale;
+			AddControllerYawInput(turnRate / inputYawScale);
+
+			quickTurnDelta -= FMath::Abs<float>(turnRate);;
+		}
+		else 
+		{
+			bDoQuickTurn = false;
+		}
 	}
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Input
+
+void AOmegaCharacter::DoCrouch()
+{
+	if (bIsSprinting) DoSprint();
+
+	bIsCrouching = !bIsCrouching;
+
+	GetCapsuleComponent()->SetCapsuleHalfHeight(normalHeight * ((bIsCrouching) ? crouchHeightFactor : 1.f));
+	GetCharacterMovement()->MaxWalkSpeed = normalSpeed * ((bIsCrouching) ? crouchSpeedFactor : 1.f);
+}
+
+void AOmegaCharacter::StopCrouch()
+{
+	if (HoldCrouch && bIsCrouching) DoCrouch();
+}
+
+void AOmegaCharacter::DoSprint()
+{
+	if (bIsCrouching) DoCrouch();
+
+	bIsSprinting = !bIsSprinting;
+
+	GetCapsuleComponent()->SetCapsuleHalfHeight(normalHeight * ((bIsSprinting) ? sprintHeightFactor : 1.f));
+	GetCharacterMovement()->MaxWalkSpeed = normalSpeed * ((bIsSprinting) ? sprintSpeedFactor : 1.f);
+}
+
+void AOmegaCharacter::StopSprint()
+{
+	if (HoldSprint && bIsSprinting) DoSprint();
+}
+
+void AOmegaCharacter::DoQuickTurn()
+{
+	if (bDoQuickTurn) return;
+
+	bDoQuickTurn = true;
+	quickTurnDelta = fQuickTurnAngle;
+}
 
 void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
@@ -118,7 +184,7 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	//InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AOmegaCharacter::TouchStarted);
 	if (EnableTouchscreenMovement(PlayerInputComponent) == false)
 	{
-		PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AOmegaCharacter::OnFire);
+		PlayerInputComponent->BindAction("PrimaryFire", IE_Pressed, this, &AOmegaCharacter::OnFire);
 	}
 
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AOmegaCharacter::OnResetVR);
@@ -129,14 +195,34 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
-	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+	PlayerInputComponent->BindAxis("Turn", this, &AOmegaCharacter::TurnAbsolute);
 	PlayerInputComponent->BindAxis("TurnRate", this, &AOmegaCharacter::TurnAtRate);
-	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+	PlayerInputComponent->BindAxis("LookUp", this, &AOmegaCharacter::LookUpAbsolute);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AOmegaCharacter::LookUpAtRate);
+
+	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AOmegaCharacter::DoCrouch);
+	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AOmegaCharacter::StopCrouch);
+
+	PlayerInputComponent->BindAction("Action", IE_Pressed, this, &AOmegaCharacter::DoSprint);
+	PlayerInputComponent->BindAction("Action", IE_Released, this, &AOmegaCharacter::StopSprint);
+
+	PlayerInputComponent->BindAction("QuickTurn", IE_Pressed, this, &AOmegaCharacter::DoQuickTurn);
 }
 
 void AOmegaCharacter::OnFire()
 {
+	if (bIsSprinting)
+	{
+		DoSprint();
+		return;
+	}
+	else if (bDoQuickTurn)
+	{
+		bDoQuickTurn = false;
+		quickTurnDelta = 0.f;
+		return;
+	}
+
 	// try and fire a projectile
 	if (ProjectileClass != NULL)
 	{
@@ -271,14 +357,28 @@ void AOmegaCharacter::MoveRight(float Value)
 
 void AOmegaCharacter::TurnAtRate(float Rate)
 {
+	if (bDoQuickTurn) return;
 	// calculate delta for this frame from the rate information
 	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
+void AOmegaCharacter::TurnAbsolute(float Rate)
+{
+	if (bDoQuickTurn) return;
+	AddControllerYawInput(Rate);
+}
+
 void AOmegaCharacter::LookUpAtRate(float Rate)
 {
+	if (bDoQuickTurn) return;
 	// calculate delta for this frame from the rate information
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+}
+
+void AOmegaCharacter::LookUpAbsolute(float Rate)
+{
+	if (bDoQuickTurn) return;
+	AddControllerPitchInput(Rate);
 }
 
 bool AOmegaCharacter::EnableTouchscreenMovement(class UInputComponent* PlayerInputComponent)

@@ -7,6 +7,14 @@
 #include "OmegaCharacter.generated.h"
 
 class UInputComponent;
+class UCharacterMovementComponent;
+
+UENUM(BlueprintType)
+enum class EQuickTurnDirection : uint8
+{
+	QTD_LEFT 	UMETA(DisplayName = "Left"),
+	QTD_RIGHT	UMETA(DisplayName = "Right")
+};
 
 UCLASS(config=Game)
 class AOmegaCharacter : public ACharacter
@@ -50,6 +58,8 @@ public:
 
 protected:
 	virtual void BeginPlay();
+
+	virtual void Tick(float DeltaSeconds) override;
 
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -102,12 +112,18 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Character Movement")
 	void TurnAtRate(float Rate);
 
+	UFUNCTION(BlueprintCallable, Category = "Character Movement")
+	void TurnAbsolute(float Rate);
+
 	/**
 	 * Called via input to turn look up/down at a given rate.
 	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Character Movement")
 	void LookUpAtRate(float Rate);
+	
+	UFUNCTION(BlueprintCallable, Category = "Character Movement")
+	void LookUpAbsolute(float Rate);
 
 	struct TouchData
 	{
@@ -121,6 +137,54 @@ protected:
 	void EndTouch(const ETouchIndex::Type FingerIndex, const FVector Location);
 	void TouchUpdate(const ETouchIndex::Type FingerIndex, const FVector Location);
 	TouchData	TouchItem;
+
+	/* these functions and variables handle crouching, un-crouching, and movement changes while crouching*/
+	UFUNCTION(BlueprintCallable, Category = "Crouching")
+	void DoCrouch();
+	UFUNCTION(BlueprintCallable, Category = "Crouching")
+	void StopCrouch();
+
+	UPROPERTY(EditAnywhere, Category = "Crouching")
+	bool HoldCrouch = true;
+	UPROPERTY(EditAnywhere, Category = "Crouching")
+	float crouchHeightFactor = 0.5f;
+	UPROPERTY(EditAnywhere, Category = "Crouching")
+	float crouchSpeedFactor = 0.5f;
+	UPROPERTY(BlueprintReadOnly, Category = "Crouching")
+	bool bIsCrouching = false;
+
+	/* these functions and variables handle sprinting, un-sprinting, and movement changes while sprinting*/
+	UFUNCTION(BlueprintCallable, Category = "Sprinting")
+	void DoSprint();
+	UFUNCTION(BlueprintCallable, Category = "Sprinting")
+	void StopSprint();
+
+	UPROPERTY(EditAnywhere, Category = "Sprinting")
+	bool HoldSprint = true;
+	UPROPERTY(EditAnywhere, Category = "Sprinting")
+	float sprintHeightFactor = 0.8f;
+	UPROPERTY(EditAnywhere, Category = "Sprinting")
+	float sprintSpeedFactor = 2.f;
+	UPROPERTY(BlueprintReadOnly, Category = "Sprinting")
+	bool bIsSprinting = false;
+
+	/* these functions and variables handle quick turning */
+	UFUNCTION(BlueprintCallable, Category = "Quick Turn")
+	void DoQuickTurn();
+
+	UPROPERTY(EditAnywhere, Category = "Quick Turn", meta = (ClampMin = "1.0", ClampMax = "50.0"))
+	float quickTurnRateScale = 10.f;
+	UPROPERTY(EditAnywhere, Category = "Quick Turn")
+	EQuickTurnDirection quickTurnDirection;
+	UPROPERTY(BlueprintReadWrite, Category = "Quick Turn")
+	float quickTurnDelta = 0.f;
+	UPROPERTY(BlueprintReadWrite, Category = "Quick Turn")
+	bool bDoQuickTurn = false;
+
+private:
+	float normalHeight = 0.f;
+	float normalSpeed = 0.f;
+	const float fQuickTurnAngle = 180.f;
 	
 protected:
 	// APawn interface
