@@ -78,6 +78,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category=Projectile)
 	TSubclassOf<class AOmegaProjectile> ProjectileClass;
 
+	/** Projectile class to spawn */
+	UPROPERTY(EditDefaultsOnly, Category = Projectile)
+	TSubclassOf<class AOmegaProjectile> SecondaryProjectileClass;
+
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)
 	class USoundBase* FireSound;
@@ -92,9 +96,17 @@ public:
 
 protected:
 	
-	/** Fires a projectile. */
+	/** Fires the primary projectile/ability of the weapon. */
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void OnFire();
+	void OnPrimaryFire();	
+	
+	/** Fires the secondary projectile/ability of the weapon. */
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
+	void OnSecondaryFire();
+
+	/** Fires the secondary projectile/ability of the weapon. */
+	UFUNCTION(BlueprintCallable, Category = "Special")
+	void OnSpecial();
 
 	/** Resets HMD orientation and position in VR. */
 	void OnResetVR();

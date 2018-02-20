@@ -12,6 +12,9 @@
 #include "MotionControllerComponent.h"
 #include "Classes/GameFramework/CharacterMovementComponent.h"
 
+#include <EngineGlobals.h>
+#include <Runtime/Engine/Classes/Engine/Engine.h>
+
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
 //////////////////////////////////////////////////////////////////////////
@@ -184,7 +187,8 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	//InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AOmegaCharacter::TouchStarted);
 	if (EnableTouchscreenMovement(PlayerInputComponent) == false)
 	{
-		PlayerInputComponent->BindAction("PrimaryFire", IE_Pressed, this, &AOmegaCharacter::OnFire);
+		PlayerInputComponent->BindAction("PrimaryFire", IE_Pressed, this, &AOmegaCharacter::OnPrimaryFire);
+		PlayerInputComponent->BindAction("SecondaryFire", IE_Pressed, this, &AOmegaCharacter::OnSecondaryFire);
 	}
 
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AOmegaCharacter::OnResetVR);
@@ -207,9 +211,11 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("Action", IE_Released, this, &AOmegaCharacter::StopSprint);
 
 	PlayerInputComponent->BindAction("QuickTurn", IE_Pressed, this, &AOmegaCharacter::DoQuickTurn);
+
+	PlayerInputComponent->BindAction("Special", IE_Pressed, this, &AOmegaCharacter::OnSpecial);
 }
 
-void AOmegaCharacter::OnFire()
+void AOmegaCharacter::OnPrimaryFire()
 {
 	if (bIsSprinting)
 	{
@@ -269,6 +275,75 @@ void AOmegaCharacter::OnFire()
 	}
 }
 
+void AOmegaCharacter::OnSecondaryFire()
+{
+	if (bIsSprinting)
+	{
+		DoSprint();
+		return;
+	}
+	else if (bDoQuickTurn)
+	{
+		bDoQuickTurn = false;
+		quickTurnDelta = 0.f;
+		return;
+	}
+
+	// try and fire a projectile
+	if (ProjectileClass != NULL)
+	{
+		UWorld* const World = GetWorld();
+		if (World != NULL)
+		{
+			if (bUsingMotionControllers)
+			{
+				const FRotator SpawnRotation = VR_MuzzleLocation->GetComponentRotation();
+				const FVector SpawnLocation = VR_MuzzleLocation->GetComponentLocation();
+				World->SpawnActor<AOmegaProjectile>(SecondaryProjectileClass, SpawnLocation, SpawnRotation);
+			}
+			else
+			{
+				const FRotator SpawnRotation = GetControlRotation();
+				// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+				const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
+
+				//Set Spawn Collision Handling Override
+				FActorSpawnParameters ActorSpawnParams;
+				ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+
+				// spawn the projectile at the muzzle
+				World->SpawnActor<AOmegaProjectile>(SecondaryProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+			}
+		}
+	}
+
+	// try and play the sound if specified
+	if (FireSound != NULL)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
+	}
+
+	// try and play a firing animation if specified
+	if (FireAnimation != NULL)
+	{
+		// Get the animation object for the arms mesh
+		UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			AnimInstance->Montage_Play(FireAnimation, 1.f);
+		}
+	}
+}
+
+void AOmegaCharacter::OnSpecial()
+{
+	// TODO: remove reference to GEngine and includes up top
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Special Ability activated!"));
+
+	// make call to character-specific special ability function
+	// e.g. duration buff, toggled mode, hold-to-engage behavior
+}
+
 void AOmegaCharacter::OnResetVR()
 {
 	UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition();
@@ -294,7 +369,7 @@ void AOmegaCharacter::EndTouch(const ETouchIndex::Type FingerIndex, const FVecto
 	}
 	if ((FingerIndex == TouchItem.FingerIndex) && (TouchItem.bMoved == false))
 	{
-		OnFire();
+		OnPrimaryFire();
 	}
 	TouchItem.bIsPressed = false;
 }
