@@ -193,10 +193,29 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "Quick Turn")
 	bool bDoQuickTurn = false;
 
+	/* these functions and variables handle scoping in/aim-down sights */
+	UFUNCTION(BlueprintCallable, Category = "Scope")
+	void ZoomIn();
+	UFUNCTION(BlueprintCallable, Category = "Scope")
+	void ZoomOut();
+	
+	UPROPERTY(EditAnywhere, Category = "Scope")
+	FVector scopedInOffset;
+	UPROPERTY(EditAnywhere, Category = "Scope")
+	float scopeZoomFactor = 0.75f;
+	UPROPERTY(EditAnywhere, Category = "Scope")
+	bool HoldScope = true;
+	UPROPERTY(BlueprintReadWrite, Category = "Scope")
+	bool bIsScoped = false;
+	UPROPERTY(EditAnywhere, Category = "Scope")
+	float scopeSpeedFactor = 0.5f;
+
 private:
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;
 	const float fQuickTurnAngle = 180.f;
+	FVector originalScopePosition;
+	float originalFieldOfView;
 	
 protected:
 	// APawn interface

@@ -98,6 +98,9 @@ void AOmegaCharacter::BeginPlay()
 	normalHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
 
+	originalScopePosition = Mesh1P->RelativeLocation;
+	originalFieldOfView = FirstPersonCameraComponent->FieldOfView;
+
 	//// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
 	//if (bUsingMotionControllers)
 	//{
@@ -156,6 +159,7 @@ void AOmegaCharacter::StopCrouch()
 void AOmegaCharacter::DoSprint()
 {
 	if (bIsCrouching) DoCrouch();
+	if (bIsScoped) ZoomIn();
 
 	bIsSprinting = !bIsSprinting;
 
@@ -174,6 +178,27 @@ void AOmegaCharacter::DoQuickTurn()
 
 	bDoQuickTurn = true;
 	quickTurnDelta = fQuickTurnAngle;
+}
+
+void AOmegaCharacter::ZoomIn()
+{
+	if (bIsSprinting)
+	{
+		DoSprint();
+		return;
+	}
+
+	bIsScoped = !bIsScoped;
+
+	FirstPersonCameraComponent->SetFieldOfView(originalFieldOfView * ((bIsScoped) ? scopeZoomFactor : 1.f));
+	GetCharacterMovement()->MaxWalkSpeed = normalSpeed * ((bIsScoped) ? scopeSpeedFactor : 1.f);
+
+	// TODO: redo parenting scheme to make offset behavior easier to manage
+}
+
+void AOmegaCharacter::ZoomOut()
+{
+	if (HoldScope && bIsScoped) ZoomIn();
 }
 
 void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -213,6 +238,9 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("QuickTurn", IE_Pressed, this, &AOmegaCharacter::DoQuickTurn);
 
 	PlayerInputComponent->BindAction("Special", IE_Pressed, this, &AOmegaCharacter::OnSpecial);
+
+	PlayerInputComponent->BindAction("Scope", IE_Pressed, this, &AOmegaCharacter::ZoomIn);
+	PlayerInputComponent->BindAction("Scope", IE_Released, this, &AOmegaCharacter::ZoomOut);
 }
 
 void AOmegaCharacter::OnPrimaryFire()
