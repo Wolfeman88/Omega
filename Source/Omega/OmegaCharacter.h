@@ -210,6 +210,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Scope")
 	float scopeSpeedFactor = 0.5f;
 
+	/* this function handles reseting the aim to 0 pitch */
+	UFUNCTION(BlueprintCallable, Category = "Reset Aim")
+	void ResetAim();
+
 private:
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;

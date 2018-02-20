@@ -187,6 +187,12 @@ void AOmegaCharacter::ZoomIn()
 		DoSprint();
 		return;
 	}
+	else if (bDoQuickTurn)
+	{
+		bDoQuickTurn = false;
+		quickTurnDelta = 0.f;
+		return;
+	}
 
 	bIsScoped = !bIsScoped;
 
@@ -199,6 +205,13 @@ void AOmegaCharacter::ZoomIn()
 void AOmegaCharacter::ZoomOut()
 {
 	if (HoldScope && bIsScoped) ZoomIn();
+}
+
+void AOmegaCharacter::ResetAim()
+{
+	APlayerController* currentPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	FRotator currentRotation = currentPlayerController->GetControlRotation();
+	currentPlayerController->SetControlRotation(*(new FRotator(0.f, currentRotation.Yaw, currentRotation.Roll)));
 }
 
 void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -241,6 +254,8 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 
 	PlayerInputComponent->BindAction("Scope", IE_Pressed, this, &AOmegaCharacter::ZoomIn);
 	PlayerInputComponent->BindAction("Scope", IE_Released, this, &AOmegaCharacter::ZoomOut);
+
+	PlayerInputComponent->BindAction("ResetAim", IE_Pressed, this, &AOmegaCharacter::ResetAim);
 }
 
 void AOmegaCharacter::OnPrimaryFire()
