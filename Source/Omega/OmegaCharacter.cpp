@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
 #include "Classes/GameFramework/CharacterMovementComponent.h"
+#include "Runtime/Engine/Public/TimerManager.h"
 
 #include <EngineGlobals.h>
 #include <Runtime/Engine/Classes/Engine/Engine.h>
@@ -100,6 +101,13 @@ void AOmegaCharacter::BeginPlay()
 
 	originalScopePosition = Mesh1P->RelativeLocation;
 	originalFieldOfView = FirstPersonCameraComponent->FieldOfView;
+
+	currentClipAmmo = clipAmmoMax;
+	currentGunAmmo = totalAmmoMax;
+
+	currentSecondaryCharges = clipSecondaryChargeMax;
+
+	ReloadTimer = *(new FTimerHandle());
 
 	//// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
 	//if (bUsingMotionControllers)
@@ -214,6 +222,54 @@ void AOmegaCharacter::ResetAim()
 	currentPlayerController->SetControlRotation(*(new FRotator(0.f, currentRotation.Yaw, currentRotation.Roll)));
 }
 
+void AOmegaCharacter::Reload()
+{
+	if (currentGunAmmo == 0) return;
+
+	int32 bulletsNeeded = clipAmmoMax - currentClipAmmo;
+	currentClipAmmo = ((currentGunAmmo -= bulletsNeeded) >= 0) ? clipAmmoMax : currentGunAmmo;
+}
+
+void AOmegaCharacter::StartReload()
+{
+	UWorld* w = GetWorld();
+
+	if (w)
+	{
+		w->GetTimerManager().SetTimer(ReloadTimer, this, &AOmegaCharacter::Reload, 1.2f);
+	}
+}
+
+bool AOmegaCharacter::PrimaryFire()
+{
+	return false;
+}
+
+bool AOmegaCharacter::SecondaryFire()
+{
+	return false;
+}
+
+bool AOmegaCharacter::FireProjectile(const AOmegaProjectile * projectile)
+{
+	return false;
+}
+
+FTimerHandle AOmegaCharacter::GetOldestSecondaryChargeTimer() const
+{
+	if (SecondaryChargeTimers.Num() == 0) return *(new FTimerHandle());
+	return *SecondaryChargeTimers[0];
+}
+
+void AOmegaCharacter::AddCharge()
+{
+	if (currentSecondaryCharges >= clipSecondaryChargeMax) return;
+
+	currentSecondaryCharges++;
+	SecondaryChargeTimers[0]->Invalidate();
+	SecondaryChargeTimers.RemoveAt(0);
+}
+
 void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	// set up gameplay key bindings
@@ -256,6 +312,8 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("Scope", IE_Released, this, &AOmegaCharacter::ZoomOut);
 
 	PlayerInputComponent->BindAction("ResetAim", IE_Pressed, this, &AOmegaCharacter::ResetAim);
+
+	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &AOmegaCharacter::StartReload);
 }
 
 void AOmegaCharacter::OnPrimaryFire()
@@ -270,6 +328,12 @@ void AOmegaCharacter::OnPrimaryFire()
 		bDoQuickTurn = false;
 		quickTurnDelta = 0.f;
 		return;
+	}
+	else if (currentClipAmmo == 0)
+	{
+		if (ReloadTimer.IsValid()) return;
+
+		StartReload();
 	}
 
 	// try and fire a projectile
@@ -316,6 +380,11 @@ void AOmegaCharacter::OnPrimaryFire()
 			AnimInstance->Montage_Play(FireAnimation, 1.f);
 		}
 	}
+
+	if (--currentClipAmmo == 0)
+	{
+		StartReload();
+	}
 }
 
 void AOmegaCharacter::OnSecondaryFire()
@@ -329,6 +398,10 @@ void AOmegaCharacter::OnSecondaryFire()
 	{
 		bDoQuickTurn = false;
 		quickTurnDelta = 0.f;
+		return;
+	}
+	else if (currentSecondaryCharges == 0)
+	{
 		return;
 	}
 
@@ -375,6 +448,17 @@ void AOmegaCharacter::OnSecondaryFire()
 		{
 			AnimInstance->Montage_Play(FireAnimation, 1.f);
 		}
+	}
+
+	UWorld* w = GetWorld();
+
+	if (w)
+	{
+		FTimerHandle* newestChargeTimer = new FTimerHandle();
+		SecondaryChargeTimers.Add(newestChargeTimer);
+
+		w->GetTimerManager().SetTimer(*newestChargeTimer, this, &AOmegaCharacter::AddCharge, 3.f);
+		currentSecondaryCharges--;
 	}
 }
 

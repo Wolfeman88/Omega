@@ -214,12 +214,46 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Reset Aim")
 	void ResetAim();
 
+	/* these functions and variables handle ammo and reloading */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo", meta = (ClampMin = "0.0", ClampMax = "3000.0"))
+	int32 totalAmmoMax = 100;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo", meta = (ClampMin = "0.0", ClampMax = "3000.0"))
+	int32 clipAmmoMax = 25;
+	UPROPERTY(BlueprintReadWrite, Category = "Ammo")
+	int32 currentClipAmmo;
+	UPROPERTY(BlueprintReadWrite, Category = "Ammo")
+	int32 currentGunAmmo;
+	UPROPERTY(BlueprintReadOnly, Category = "Ammo")
+	FTimerHandle ReloadTimer;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	int32 clipSecondaryChargeMax = 2;
+	UPROPERTY(BlueprintReadWrite, Category = "Ammo")
+	int32 currentSecondaryCharges;
+
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	void StartReload();
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	virtual bool PrimaryFire();
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	virtual bool SecondaryFire();
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	bool FireProjectile(const AOmegaProjectile* projectile);
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	FTimerHandle GetOldestSecondaryChargeTimer() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	virtual void AddCharge();
+
 private:
+	virtual void Reload();
+
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;
 	const float fQuickTurnAngle = 180.f;
 	FVector originalScopePosition;
 	float originalFieldOfView;
+	TArray<FTimerHandle*> SecondaryChargeTimers;
 	
 protected:
 	// APawn interface
