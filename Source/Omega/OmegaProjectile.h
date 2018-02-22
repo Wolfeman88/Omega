@@ -31,5 +31,11 @@ protected:
 	/** called when projectile hits something */
 	UFUNCTION(BlueprintCallable)
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage", meta = (ClampMin = 0.2f, ClampMax = 2000.f))
+	float ProjectileDamage = 5.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage", meta = (ClampMin = 0.2f, ClampMax = 2000.f))
+	float ProjectileForce = 100.f;
 };
 

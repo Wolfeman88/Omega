@@ -56,6 +56,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	class UAnimMontage* FireAnimation;
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void ReceiveDamage(float damage);
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void RechargeShield(float regen);
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void RegainHealth(float health);
+
 protected:
 	
 	/** Fires the primary projectile/ability of the weapon. */
@@ -160,6 +167,22 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Reset Aim")
 	void ResetAim();
 
+	/* these variables and functions handle player and shield health, and armor */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (ClampMin = 50.f, ClampMax = 500.f))
+	float maxHealth = 100.f;
+	UPROPERTY(BlueprintReadWrite, Category = "Health", meta = (ClampMin = 0.f))
+	float currentHealth;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (ClampMin = 50.f, ClampMax = 500.f))
+	float maxShield = 100.f;
+	UPROPERTY(BlueprintReadWrite, Category = "Health", meta = (ClampMin = 0.f))
+	float currentShield;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (ClampMin = 0.f, ClampMax = 2.f))
+	float shieldRechargeFactor = 1.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (ClampMin = 0.f, ClampMax = 1.f))
+	float armorFactor = 0.2f;
+
 private:
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;
@@ -167,6 +190,9 @@ private:
 	FVector originalScopePosition;
 	float originalFieldOfView;
 	void StartReload();
+
+	FVector previousPosition;
+	FRotator previousRotation;
 	
 protected:
 	// APawn interface

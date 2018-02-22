@@ -62,6 +62,12 @@ void AOmegaCharacter::BeginPlay()
 
 	originalScopePosition = Mesh1P->RelativeLocation;
 	originalFieldOfView = FirstPersonCameraComponent->FieldOfView;
+
+	currentHealth = maxHealth;
+	currentShield = maxShield;
+
+	previousPosition = GetActorLocation();
+	previousRotation = GetControlRotation();
 }
 
 void AOmegaCharacter::Tick(float DeltaSeconds)
@@ -85,6 +91,30 @@ void AOmegaCharacter::Tick(float DeltaSeconds)
 		{
 			bDoQuickTurn = false;
 		}
+	}
+
+	/* this code is the start of the system to determine what player is looking at - drives UI */
+	FHitResult* hit = new FHitResult();
+	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), true, this);
+	FVector CamLoc;
+	FRotator CamRot;
+	GetActorEyesViewPoint(CamLoc, CamRot);
+
+	if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * 5000.f, ECollisionChannel::ECC_PhysicsBody, params))
+	{
+		if (!hit->GetActor()->IsRootComponentMovable())
+		{
+			// GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Blue, hit->GetActor()->GetName());
+		}
+	}
+
+	FVector positionDelta = GetActorLocation() - previousPosition;
+	// FRotator rotationDelta = GetControlRotation() - previousRotation;
+
+	if (!positionDelta.IsNearlyZero())
+	{
+		RechargeShield(shieldRechargeFactor * DeltaSeconds * positionDelta.Size());
+		previousPosition = GetActorLocation();
 	}
 }
 
@@ -210,6 +240,44 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("ResetAim", IE_Pressed, this, &AOmegaCharacter::ResetAim);
 
 	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &AOmegaCharacter::StartReload);
+}
+
+void AOmegaCharacter::ReceiveDamage(float damage)
+{
+	float remainingDamage = 0.f;
+	float overkill = 0.f;
+
+	if (currentShield > damage)
+	{
+		currentShield = currentShield - damage;
+	}
+	else
+	{
+		remainingDamage = damage - currentShield;
+		currentShield = 0.f;
+	}
+
+	if (currentHealth > remainingDamage)
+	{
+		currentHealth = currentHealth - (remainingDamage - (remainingDamage * (armorFactor)));
+	}
+	else
+	{
+		overkill = remainingDamage - currentHealth;
+		currentHealth = 0.f;
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("You died..."));
+		DisableInput(UGameplayStatics::GetPlayerController(this, 0));
+	}
+}
+
+void AOmegaCharacter::RechargeShield(float regen)
+{
+	currentShield = FMath::Min(maxShield, currentShield + regen);
+}
+
+void AOmegaCharacter::RegainHealth(float health)
+{
+	currentHealth = FMath::Min(maxHealth, currentHealth + health);
 }
 
 void AOmegaCharacter::OnPrimaryFire()

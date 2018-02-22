@@ -52,7 +52,7 @@ void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile)
 	{
 		const FRotator SpawnRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
 		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		const FVector SpawnLocation = GunSkeleton->GetSocketByName("Muzzle")->GetSocketTransform(GunSkeleton).GetLocation() + SpawnRotation.RotateVector(FVector::ForwardVector * 40.f);
+		const FVector SpawnLocation = GunSkeleton->GetSocketByName("Muzzle")->GetSocketTransform(GunSkeleton).GetLocation() + SpawnRotation.RotateVector(FVector::ForwardVector * 50.f);
 
 		//Set Spawn Collision Handling Override
 		FActorSpawnParameters ActorSpawnParams;

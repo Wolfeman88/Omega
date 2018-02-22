@@ -3,6 +3,7 @@
 #include "OmegaProjectile.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Components/SphereComponent.h"
+#include "OmegaCharacter.h"
 
 AOmegaProjectile::AOmegaProjectile() 
 {
@@ -34,10 +35,20 @@ AOmegaProjectile::AOmegaProjectile()
 void AOmegaProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	// Only add impulse and destroy projectile if we hit a physics
-	if ((OtherActor != NULL) && (OtherActor != this) && (OtherComp != NULL) && OtherComp->IsSimulatingPhysics())
+	if ((OtherActor != NULL) && (OtherActor != this) && (OtherComp != NULL))
 	{
-		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
+		if (OtherComp->IsSimulatingPhysics())
+		{
+			OtherComp->AddImpulseAtLocation(GetVelocity() * ProjectileForce, GetActorLocation());
+			Destroy();
+		}
+		
+		AOmegaCharacter* omegaActor = Cast<AOmegaCharacter>(OtherActor);
 
-		Destroy();
+		if (omegaActor)
+		{
+			omegaActor->ReceiveDamage(ProjectileDamage);
+			Destroy();
+		}
 	}
 }
