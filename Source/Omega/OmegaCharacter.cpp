@@ -11,7 +11,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
 #include "Classes/GameFramework/CharacterMovementComponent.h"
-#include "Runtime/Engine/Public/TimerManager.h"
+#include "OmegaGunBase.h"
+#include "Components/ChildActorComponent.h"
 
 #include <EngineGlobals.h>
 #include <Runtime/Engine/Classes/Engine/Engine.h>
@@ -45,47 +46,48 @@ AOmegaCharacter::AOmegaCharacter()
 	Mesh1P->RelativeRotation = FRotator(1.9f, -19.19f, 5.2f);
 	Mesh1P->RelativeLocation = FVector(-0.5f, -4.4f, -155.7f);
 
-	// Create a gun mesh component
-	FP_Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
-	FP_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
-	FP_Gun->bCastDynamicShadow = false;
-	FP_Gun->CastShadow = false;
-	// FP_Gun->SetupAttachment(Mesh1P, TEXT("GripPoint"));
-	FP_Gun->SetupAttachment(RootComponent);
+	//// Create a gun mesh component
+	//FP_Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
+	//FP_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
+	//FP_Gun->bCastDynamicShadow = false;
+	//FP_Gun->CastShadow = false;
+	//// FP_Gun->SetupAttachment(Mesh1P, TEXT("GripPoint"));
+	//FP_Gun->SetupAttachment(RootComponent);
 
-	FP_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("MuzzleLocation"));
-	FP_MuzzleLocation->SetupAttachment(FP_Gun);
-	FP_MuzzleLocation->SetRelativeLocation(FVector(0.2f, 48.4f, -10.6f));
+	//FP_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("MuzzleLocation"));
+	//FP_MuzzleLocation->SetupAttachment(FP_Gun);
+	//FP_MuzzleLocation->SetRelativeLocation(FVector(0.2f, 48.4f, -10.6f));
 
-	// Default offset from the character location for projectiles to spawn
-	GunOffset = FVector(75.0f, 0.0f, 10.0f);
+	//// Default offset from the character location for projectiles to spawn
+	//GunOffset = FVector(75.0f, 0.0f, 10.0f);
 
-	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
-	// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
+	//// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
+	//// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
 
-	// Create VR Controllers.
-	//R_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("R_MotionController"));
-	//R_MotionController->Hand = EControllerHand::Right;
-	//R_MotionController->SetupAttachment(RootComponent);
-	//L_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("L_MotionController"));
-	//L_MotionController->SetupAttachment(RootComponent);
+	//// Create VR Controllers.
+	////R_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("R_MotionController"));
+	////R_MotionController->Hand = EControllerHand::Right;
+	////R_MotionController->SetupAttachment(RootComponent);
+	////L_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("L_MotionController"));
+	////L_MotionController->SetupAttachment(RootComponent);
 
-	// Create a gun and attach it to the right-hand VR controller.
-	// Create a gun mesh component
-	VR_Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VR_Gun"));
-	VR_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
-	VR_Gun->bCastDynamicShadow = false;
-	VR_Gun->CastShadow = false;
-	VR_Gun->SetupAttachment(R_MotionController);
-	VR_Gun->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+	//// Create a gun and attach it to the right-hand VR controller.
+	//// Create a gun mesh component
+	//VR_Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VR_Gun"));
+	//VR_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
+	//VR_Gun->bCastDynamicShadow = false;
+	//VR_Gun->CastShadow = false;
+	//VR_Gun->SetupAttachment(R_MotionController);
+	//VR_Gun->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
 
-	VR_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("VR_MuzzleLocation"));
-	VR_MuzzleLocation->SetupAttachment(VR_Gun);
-	VR_MuzzleLocation->SetRelativeLocation(FVector(0.000004, 53.999992, 10.000000));
-	VR_MuzzleLocation->SetRelativeRotation(FRotator(0.0f, 90.0f, 0.0f));		// Counteract the rotation of the VR gun model.
+	//VR_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("VR_MuzzleLocation"));
+	//VR_MuzzleLocation->SetupAttachment(VR_Gun);
+	//VR_MuzzleLocation->SetRelativeLocation(FVector(0.000004, 53.999992, 10.000000));
+	//VR_MuzzleLocation->SetRelativeRotation(FRotator(0.0f, 90.0f, 0.0f));		// Counteract the rotation of the VR gun model.
 
 	// Uncomment the following line to turn motion controllers on by default:
 	//bUsingMotionControllers = true;
+	GunActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("GunActor"));
 }
 
 void AOmegaCharacter::BeginPlay()
@@ -94,20 +96,15 @@ void AOmegaCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
-	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	//FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	GunActor->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	CurrentWeapon = Cast<AOmegaGunBase>(GunActor->GetChildActor());
 
 	normalHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
 
 	originalScopePosition = Mesh1P->RelativeLocation;
 	originalFieldOfView = FirstPersonCameraComponent->FieldOfView;
-
-	currentClipAmmo = clipAmmoMax;
-	currentGunAmmo = totalAmmoMax;
-
-	currentSecondaryCharges = clipSecondaryChargeMax;
-
-	ReloadTimer = *(new FTimerHandle());
 
 	//// Show or hide the two versions of the gun based on whether or not we're using motion controllers.
 	//if (bUsingMotionControllers)
@@ -222,52 +219,12 @@ void AOmegaCharacter::ResetAim()
 	currentPlayerController->SetControlRotation(*(new FRotator(0.f, currentRotation.Yaw, currentRotation.Roll)));
 }
 
-void AOmegaCharacter::Reload()
-{
-	if (currentGunAmmo == 0) return;
-
-	int32 bulletsNeeded = clipAmmoMax - currentClipAmmo;
-	currentClipAmmo = ((currentGunAmmo -= bulletsNeeded) >= 0) ? clipAmmoMax : currentGunAmmo;
-}
-
 void AOmegaCharacter::StartReload()
 {
-	UWorld* w = GetWorld();
-
-	if (w)
+	if (CurrentWeapon)
 	{
-		w->GetTimerManager().SetTimer(ReloadTimer, this, &AOmegaCharacter::Reload, 1.2f);
+		CurrentWeapon->StartReload();
 	}
-}
-
-bool AOmegaCharacter::PrimaryFire()
-{
-	return false;
-}
-
-bool AOmegaCharacter::SecondaryFire()
-{
-	return false;
-}
-
-bool AOmegaCharacter::FireProjectile(const AOmegaProjectile * projectile)
-{
-	return false;
-}
-
-FTimerHandle AOmegaCharacter::GetOldestSecondaryChargeTimer() const
-{
-	if (SecondaryChargeTimers.Num() == 0) return *(new FTimerHandle());
-	return *SecondaryChargeTimers[0];
-}
-
-void AOmegaCharacter::AddCharge()
-{
-	if (currentSecondaryCharges >= clipSecondaryChargeMax) return;
-
-	currentSecondaryCharges++;
-	SecondaryChargeTimers[0]->Invalidate();
-	SecondaryChargeTimers.RemoveAt(0);
 }
 
 void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -329,61 +286,21 @@ void AOmegaCharacter::OnPrimaryFire()
 		quickTurnDelta = 0.f;
 		return;
 	}
-	else if (currentClipAmmo == 0)
+	else if (CurrentWeapon)
 	{
-		if (ReloadTimer.IsValid()) return;
-
-		StartReload();
-	}
-
-	// try and fire a projectile
-	if (ProjectileClass != NULL)
-	{
-		UWorld* const World = GetWorld();
-		if (World != NULL)
+		if (CurrentWeapon->PrimaryFire())
 		{
-			if (bUsingMotionControllers)
+			// try and play a firing animation if specified
+			if (FireAnimation != NULL)
 			{
-				const FRotator SpawnRotation = VR_MuzzleLocation->GetComponentRotation();
-				const FVector SpawnLocation = VR_MuzzleLocation->GetComponentLocation();
-				World->SpawnActor<AOmegaProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
-			}
-			else
-			{
-				const FRotator SpawnRotation = GetControlRotation();
-				// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-				const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
-
-				//Set Spawn Collision Handling Override
-				FActorSpawnParameters ActorSpawnParams;
-				ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-
-				// spawn the projectile at the muzzle
-				World->SpawnActor<AOmegaProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+				// Get the animation object for the arms mesh
+				UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
+				if (AnimInstance != NULL)
+				{
+					AnimInstance->Montage_Play(FireAnimation, 1.f);
+				}
 			}
 		}
-	}
-
-	// try and play the sound if specified
-	if (FireSound != NULL)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
-	}
-
-	// try and play a firing animation if specified
-	if (FireAnimation != NULL)
-	{
-		// Get the animation object for the arms mesh
-		UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
-		if (AnimInstance != NULL)
-		{
-			AnimInstance->Montage_Play(FireAnimation, 1.f);
-		}
-	}
-
-	if (--currentClipAmmo == 0)
-	{
-		StartReload();
 	}
 }
 
@@ -400,65 +317,21 @@ void AOmegaCharacter::OnSecondaryFire()
 		quickTurnDelta = 0.f;
 		return;
 	}
-	else if (currentSecondaryCharges == 0)
+	else if (CurrentWeapon)
 	{
-		return;
-	}
-
-	// try and fire a projectile
-	if (ProjectileClass != NULL)
-	{
-		UWorld* const World = GetWorld();
-		if (World != NULL)
+		if (CurrentWeapon->SecondaryFire())
 		{
-			if (bUsingMotionControllers)
+			// try and play a firing animation if specified
+			if (FireAnimation != NULL)
 			{
-				const FRotator SpawnRotation = VR_MuzzleLocation->GetComponentRotation();
-				const FVector SpawnLocation = VR_MuzzleLocation->GetComponentLocation();
-				World->SpawnActor<AOmegaProjectile>(SecondaryProjectileClass, SpawnLocation, SpawnRotation);
-			}
-			else
-			{
-				const FRotator SpawnRotation = GetControlRotation();
-				// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-				const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
-
-				//Set Spawn Collision Handling Override
-				FActorSpawnParameters ActorSpawnParams;
-				ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-
-				// spawn the projectile at the muzzle
-				World->SpawnActor<AOmegaProjectile>(SecondaryProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+				// Get the animation object for the arms mesh
+				UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
+				if (AnimInstance != NULL)
+				{
+					AnimInstance->Montage_Play(FireAnimation, 1.f);
+				}
 			}
 		}
-	}
-
-	// try and play the sound if specified
-	if (FireSound != NULL)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
-	}
-
-	// try and play a firing animation if specified
-	if (FireAnimation != NULL)
-	{
-		// Get the animation object for the arms mesh
-		UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
-		if (AnimInstance != NULL)
-		{
-			AnimInstance->Montage_Play(FireAnimation, 1.f);
-		}
-	}
-
-	UWorld* w = GetWorld();
-
-	if (w)
-	{
-		FTimerHandle* newestChargeTimer = new FTimerHandle();
-		SecondaryChargeTimers.Add(newestChargeTimer);
-
-		w->GetTimerManager().SetTimer(*newestChargeTimer, this, &AOmegaCharacter::AddCharge, 3.f);
-		currentSecondaryCharges--;
 	}
 }
 
