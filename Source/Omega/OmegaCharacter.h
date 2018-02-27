@@ -193,6 +193,8 @@ private:
 
 	FVector previousPosition;
 	FRotator previousRotation;
+
+	FVector aimLocation;
 	
 protected:
 	// APawn interface

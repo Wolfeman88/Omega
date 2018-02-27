@@ -6,6 +6,7 @@
 #include "OmegaProjectile.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 AOmegaGunBase::AOmegaGunBase()
@@ -45,21 +46,24 @@ void AOmegaGunBase::Reload()
 	GetWorldTimerManager().ClearTimer(ReloadTimer);
 }
 
-void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile)
+void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile, const FVector& AimTarget)
 {
 	UWorld* const World = GetWorld();
 	if (World)
 	{
-		const FRotator SpawnRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
+		FVector MuzzleLocation = GunSkeleton->GetSocketLocation("Muzzle");
+		FRotator MuzzleRotation = GunSkeleton->GetSocketRotation("Muzzle");
+		FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(MuzzleLocation, AimTarget);
+		if (AimTarget.IsNearlyZero()) AimRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
 		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		const FVector SpawnLocation = GunSkeleton->GetSocketByName("Muzzle")->GetSocketTransform(GunSkeleton).GetLocation() + SpawnRotation.RotateVector(FVector::ForwardVector * 50.f);
+		const FVector SpawnLocation = MuzzleLocation + MuzzleRotation.RotateVector(FVector::ForwardVector * 50.f);
 
 		//Set Spawn Collision Handling Override
 		FActorSpawnParameters ActorSpawnParams;
 		ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
 		// spawn the projectile at the muzzle
-		World->SpawnActor<AOmegaProjectile>(projectile, SpawnLocation, SpawnRotation, ActorSpawnParams);
+		World->SpawnActor<AOmegaProjectile>(projectile, SpawnLocation, AimRotation, ActorSpawnParams);
 	}
 }
 
@@ -68,7 +72,7 @@ void AOmegaGunBase::StartReload()
 	GetWorldTimerManager().SetTimer(ReloadTimer, this, &AOmegaGunBase::Reload, 1.2f);
 }
 
-bool AOmegaGunBase::PrimaryFire()
+bool AOmegaGunBase::PrimaryFire(const FVector& AimTarget)
 {	
 	if (ReloadTimer.IsValid())
 	{
@@ -81,7 +85,7 @@ bool AOmegaGunBase::PrimaryFire()
 	}
 
 	// try and fire a projectile
-	if (ProjectileClass) FireProjectile(ProjectileClass);
+	if (ProjectileClass) FireProjectile(ProjectileClass, AimTarget);
 	else return false;
 
 	// try and play the sound if specified
@@ -93,12 +97,12 @@ bool AOmegaGunBase::PrimaryFire()
 	return true;
 }
 
-bool AOmegaGunBase::SecondaryFire()
+bool AOmegaGunBase::SecondaryFire(const FVector& AimTarget)
 {
 	if (currentSecondaryCharges == 0) return false;
 
 	// try and fire a projectile
-	if (SecondaryProjectileClass) FireProjectile(SecondaryProjectileClass);
+	if (SecondaryProjectileClass) FireProjectile(SecondaryProjectileClass, AimTarget);
 	else return false;
 
 	// try and play the sound if specified

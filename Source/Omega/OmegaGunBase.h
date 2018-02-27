@@ -12,7 +12,7 @@ class OMEGA_API AOmegaGunBase : public AActor
 	GENERATED_BODY()
 
 	virtual void Reload();
-	virtual void FireProjectile(TSubclassOf<class AOmegaProjectile> projectile);
+	virtual void FireProjectile(TSubclassOf<class AOmegaProjectile> projectile, const FVector& AimTarget);
 
 	TArray<FTimerHandle*> SecondaryChargeTimers;
 	
@@ -25,9 +25,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	void StartReload();
 	UFUNCTION(BlueprintCallable, Category = "Gun")
-	virtual bool PrimaryFire();
+	virtual bool PrimaryFire(const FVector& AimTarget);
 	UFUNCTION(BlueprintCallable, Category = "Gun")
-	virtual bool SecondaryFire();
+	virtual bool SecondaryFire(const FVector& AimTarget);
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	virtual void AddCharge();
 

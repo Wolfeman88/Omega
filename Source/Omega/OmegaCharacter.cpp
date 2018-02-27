@@ -8,6 +8,7 @@
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Classes/GameFramework/CharacterMovementComponent.h"
 #include "OmegaGunBase.h"
 #include "Components/ChildActorComponent.h"
@@ -46,6 +47,7 @@ AOmegaCharacter::AOmegaCharacter()
 
 	// creating a default child actor component to 'hold' the current weapon
 	GunActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("GunActor"));
+	GunActor->SetupAttachment(Mesh1P);
 }
 
 void AOmegaCharacter::BeginPlay()
@@ -106,6 +108,15 @@ void AOmegaCharacter::Tick(float DeltaSeconds)
 		{
 			// GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Blue, hit->GetActor()->GetName());
 		}
+
+		//FRotator PointGunRotation = UKismetMathLibrary::FindLookAtRotation(GunActor->GetComponentLocation(), hit->Location);
+		//GunActor->SetWorldRotation = PointGunRotation;	
+
+		aimLocation = hit->Location;
+	}
+	else
+	{
+		aimLocation = FVector::ZeroVector;
 	}
 
 	FVector positionDelta = GetActorLocation() - previousPosition;
@@ -295,7 +306,7 @@ void AOmegaCharacter::OnPrimaryFire()
 	}
 	else if (CurrentWeapon)
 	{
-		if (CurrentWeapon->PrimaryFire())
+		if (CurrentWeapon->PrimaryFire(aimLocation))
 		{
 			// try and play a firing animation if specified
 			if (FireAnimation != NULL)
@@ -326,7 +337,7 @@ void AOmegaCharacter::OnSecondaryFire()
 	}
 	else if (CurrentWeapon)
 	{
-		if (CurrentWeapon->SecondaryFire())
+		if (CurrentWeapon->SecondaryFire(aimLocation))
 		{
 			// try and play a firing animation if specified
 			if (FireAnimation != NULL)
