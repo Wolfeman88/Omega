@@ -11,6 +11,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Classes/GameFramework/CharacterMovementComponent.h"
 #include "OmegaGunBase.h"
+#include "CoverActorBase.h"
 #include "Components/ChildActorComponent.h"
 
 #include <EngineGlobals.h>
@@ -76,65 +77,37 @@ void AOmegaCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (bDoQuickTurn)
-	{
-		if (quickTurnDelta > 0.f)
-		{
-			float turnRate = quickTurnRateScale * DeltaSeconds * BaseTurnRate * ((quickTurnDirection == EQuickTurnDirection::QTD_LEFT) ? -1 : 1);
-			float absTurnRate = FMath::Abs<float>(turnRate);
-			turnRate = (quickTurnDelta - absTurnRate >= 0.f) ? turnRate : ((turnRate * quickTurnDelta) / absTurnRate);
+	if (bDoQuickTurn) ProcessQuickTurnOnTick(DeltaSeconds);
+	if (bIsSliding) HandleSliding(DeltaSeconds);
 
-			float inputYawScale = UGameplayStatics::GetPlayerController(this, 0)->InputYawScale;
-			AddControllerYawInput(turnRate / inputYawScale);
-
-			quickTurnDelta -= FMath::Abs<float>(turnRate);;
-		}
-		else 
-		{
-			bDoQuickTurn = false;
-		}
-	}
-
-	/* this code is the start of the system to determine what player is looking at - drives UI */
-	FHitResult* hit = new FHitResult();
-	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), true, this);
-	FVector CamLoc;
-	FRotator CamRot;
-	GetActorEyesViewPoint(CamLoc, CamRot);
-
-	if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * 5000.f, ECollisionChannel::ECC_PhysicsBody, params))
-	{
-		if (!hit->GetActor()->IsRootComponentMovable())
-		{
-			// GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Blue, hit->GetActor()->GetName());
-		}
-
-		//FRotator PointGunRotation = UKismetMathLibrary::FindLookAtRotation(GunActor->GetComponentLocation(), hit->Location);
-		//GunActor->SetWorldRotation = PointGunRotation;	
-
-		aimLocation = hit->Location;
-	}
-	else
-	{
-		aimLocation = FVector::ZeroVector;
-	}
+	UpdateReticleState();
 
 	FVector positionDelta = GetActorLocation() - previousPosition;
-	// FRotator rotationDelta = GetControlRotation() - previousRotation;
-
 	if (!positionDelta.IsNearlyZero())
 	{
 		RechargeShield(shieldRechargeFactor * DeltaSeconds * positionDelta.Size());
 		previousPosition = GetActorLocation();
 	}
-}
 
-//////////////////////////////////////////////////////////////////////////
-// Input
+	if (CoverState == ECoverState::CS_COVER)
+	{
+		HandleInCover();
+	}
+	else if (CoverState == ECoverState::CS_MOVING)
+	{
+		HandleMovingToCover();	// does nothing for now
+	}
+}
 
 void AOmegaCharacter::DoCrouch()
 {
-	if (bIsSprinting) DoSprint();
+	if (bIsSprinting)
+	{
+		bIsSliding = true;
+		SlideDirection = UKismetMathLibrary::GetForwardVector(GetControlRotation());
+		SlideSpeed = GetCharacterMovement()->Velocity.Size();
+		DoSprint();
+	}
 
 	bIsCrouching = !bIsCrouching;
 
@@ -151,6 +124,7 @@ void AOmegaCharacter::DoSprint()
 {
 	if (bIsCrouching) DoCrouch();
 	if (bIsScoped) ZoomIn();
+	if (CoverState == ECoverState::CS_COVER) ExitCover();
 
 	bIsSprinting = !bIsSprinting;
 
@@ -205,6 +179,181 @@ void AOmegaCharacter::ResetAim()
 	currentPlayerController->SetControlRotation(*(new FRotator(0.f, currentRotation.Yaw, currentRotation.Roll)));
 }
 
+void AOmegaCharacter::UpdateReticleState()
+{
+	FHitResult* hit = new FHitResult();
+	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
+	FVector CamLoc;
+	FRotator CamRot;
+	GetActorEyesViewPoint(CamLoc, CamRot);
+
+	ReticleState = EViewTargetState::VTS_DEFAULT;
+	aimLocation = FVector::ZeroVector;
+
+	bool bHitSuccess = GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * CoverInteractDistance, ECollisionChannel::ECC_WorldDynamic, params);
+
+	if (bHitSuccess)
+	{
+		ACoverActorBase* coverActor = Cast<ACoverActorBase>(hit->GetActor());
+
+		if (coverActor)
+		{
+			ReticleState = EViewTargetState::VTS_COVER;
+			aimLocation = hit->Location;
+		}
+		else
+		{
+			bHitSuccess = GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, ECollisionChannel::ECC_WorldDynamic, params);
+
+			if (false)
+			{	// TODO: NPC and Pickup classes to detect and handle reticle - not worried about this yet
+				if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+				{
+					ReticleState = EViewTargetState::VTS_NPC;
+					aimLocation = hit->Location;
+					// TODO: differentiate between talk and stealth attack reticle behavior
+					// potentially dot product of both actors forward vectors - if positive (facing away), stealth; if negative (facing), talk
+					// EViewTargetState::VTS_STEALTH
+				}
+
+				else if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * PickupInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+				{
+					ReticleState = EViewTargetState::VTS_OBJECT;
+					aimLocation = hit->Location;
+					// TODO: differentiate between objective, health, and ammo pickups
+					// need to make c++ classes for those pickups and if/else check
+					// EViewTargetState::VTS_HEALTH;
+					// EViewTargetState::VTS_AMMO;
+				}
+			}
+		}
+	}
+}
+
+void AOmegaCharacter::Action()
+{
+	if (GetCharacterMovement()->IsFalling()) return;
+
+	if (ReticleState == EViewTargetState::VTS_COVER)
+	{
+		EnterCover();
+	}
+	else if ((ReticleState == EViewTargetState::VTS_AMMO) ||
+		(ReticleState == EViewTargetState::VTS_HEALTH) ||
+		(ReticleState == EViewTargetState::VTS_OBJECT))
+	{
+		// pickup object
+	}
+	else if (ReticleState == EViewTargetState::VTS_NPC)
+	{
+		// talk to NPC
+	}
+	else if (ReticleState == EViewTargetState::VTS_HEALTH)
+	{ 
+		// initiate stealth kill
+	}
+	else
+	{
+		DoSprint();
+	}
+}
+
+void AOmegaCharacter::HandleSliding(float DeltaTime)
+{
+	SetActorLocation(GetActorLocation() + SlideDirection * (SlideSpeed * DeltaTime));
+	SlideSpeed -= SlideAcceleration;
+	bIsSliding = SlideSpeed > 0.f;
+}
+
+void AOmegaCharacter::HandleMovingToCover()
+{
+
+}
+
+void AOmegaCharacter::EnterCover()
+{
+	FHitResult* hit = new FHitResult();
+	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
+	FVector StartLoc = GetActorLocation();
+	FVector StartRot = GetActorForwardVector();
+	
+	if (GetWorld()->LineTraceSingleByChannel(*hit, StartLoc, StartLoc + StartRot * CoverInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+	{
+		if (hit->GetActor() == CoverActor) return;
+
+		CoverActor = Cast<ACoverActorBase>(hit->GetActor());
+		CoverNormalVector = hit->Normal;
+		bool bIsShortCover = CoverActor->GetIsCrouchHeight();
+
+		if (bIsSprinting) DoSprint();
+		if ((!bIsShortCover && bIsCrouching) || (bIsShortCover && !bIsCrouching)) DoCrouch();
+
+		FVector CoverEntryLocation = hit->Location;
+		CoverEntryLocation += CoverNormalVector * (GetCapsuleComponent()->GetUnscaledCapsuleRadius());
+		SetActorLocation(CoverEntryLocation);
+
+		CoverState = ECoverState::CS_COVER;
+	}
+	else
+	{
+		ExitCover();
+	}
+}
+
+void AOmegaCharacter::ExitCover()
+{
+	CoverState = ECoverState::CS_NONE;
+	CoverNormalVector = FVector::ZeroVector;
+	CoverActor = nullptr;
+
+}
+
+void AOmegaCharacter::HandleInCover()
+{
+	FVector PlayerLoc = GetActorLocation();
+	FVector CoverActorLoc = CoverActor->GetActorLocation();
+	float CapsuleRad = GetCapsuleComponent()->GetUnscaledCapsuleRadius() + CoverActorGap;
+
+	float DeltaX = PlayerLoc.X - CoverActorLoc.X;
+	float ClampedX = CoverActorLoc.X + CapsuleRad * (DeltaX / FMath::Abs(DeltaX));
+	float DeltaY = PlayerLoc.Y - CoverActorLoc.Y;
+	float ClampedY = CoverActorLoc.Y + CapsuleRad * (DeltaY / FMath::Abs(DeltaY));
+
+	float PlayerCoverOrientationFactor = FMath::Abs(UKismetMathLibrary::Dot_VectorVector(CoverNormalVector, FVector::ForwardVector));
+
+	PlayerLoc.X = (PlayerCoverOrientationFactor == 0.f) ? PlayerLoc.X : ClampedX;
+	PlayerLoc.Y = (PlayerCoverOrientationFactor == 0.f) ? ClampedY : PlayerLoc.Y;
+
+	SetActorLocation(PlayerLoc);
+
+	FHitResult* hit = new FHitResult();
+	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
+
+	if (!GetWorld()->LineTraceSingleByObjectType(*hit, GetActorLocation(), GetActorLocation() + CoverNormalVector * fMinCoverDistance, ECollisionChannel::ECC_WorldStatic, params))
+	{
+		ExitCover();
+	}
+}
+
+void AOmegaCharacter::ProcessQuickTurnOnTick(float DeltaTime)
+{
+	if (quickTurnDelta > 0.f)
+	{
+		float turnRate = quickTurnRateScale * DeltaTime * BaseTurnRate * ((quickTurnDirection == EQuickTurnDirection::QTD_LEFT) ? -1 : 1);
+		float absTurnRate = FMath::Abs<float>(turnRate);
+		turnRate = (quickTurnDelta - absTurnRate >= 0.f) ? turnRate : ((turnRate * quickTurnDelta) / absTurnRate);
+
+		float inputYawScale = UGameplayStatics::GetPlayerController(this, 0)->InputYawScale;
+		AddControllerYawInput(turnRate / inputYawScale);
+
+		quickTurnDelta -= FMath::Abs<float>(turnRate);;
+	}
+	else
+	{
+		bDoQuickTurn = false;
+	}
+}
+
 void AOmegaCharacter::StartReload()
 {
 	if (CurrentWeapon)
@@ -238,7 +387,7 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AOmegaCharacter::DoCrouch);
 	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AOmegaCharacter::StopCrouch);
 
-	PlayerInputComponent->BindAction("Action", IE_Pressed, this, &AOmegaCharacter::DoSprint);
+	PlayerInputComponent->BindAction("Action", IE_Pressed, this, &AOmegaCharacter::Action);
 	PlayerInputComponent->BindAction("Action", IE_Released, this, &AOmegaCharacter::StopSprint);
 
 	PlayerInputComponent->BindAction("QuickTurn", IE_Pressed, this, &AOmegaCharacter::DoQuickTurn);
@@ -364,15 +513,24 @@ void AOmegaCharacter::OnSpecial()
 
 void AOmegaCharacter::MoveForward(float Value)
 {
+	if (bIsSliding) return;
+	// TODO: have forward movement away from cover break cover
+
 	if (Value != 0.0f)
 	{
 		// add movement in that direction
 		AddMovementInput(GetActorForwardVector(), Value);
+
+		if ((Value < 0.f) && (bIsSprinting)) DoSprint();
 	}
+	else if (bIsSprinting) DoSprint();
 }
 
 void AOmegaCharacter::MoveRight(float Value)
 {
+	if (bIsSliding) return;
+	// TODO: have strafing movement away from cover break cover
+
 	if (Value != 0.0f)
 	{
 		// add movement in that direction
@@ -391,6 +549,7 @@ void AOmegaCharacter::TurnAbsolute(float Rate)
 {
 	if (bDoQuickTurn) return;
 	AddControllerYawInput(Rate);
+	// if ((FMath::Abs(Rate) > 1.f) && (bIsSprinting)) DoSprint();
 }
 
 void AOmegaCharacter::LookUpAtRate(float Rate)

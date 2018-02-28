@@ -16,6 +16,26 @@ enum class EQuickTurnDirection : uint8
 	QTD_RIGHT	UMETA(DisplayName = "Right")
 };
 
+UENUM(BlueprintType)
+enum class EViewTargetState : uint8
+{
+	VTS_DEFAULT		UMETA(DisplayName = "Default"),
+	VTS_COVER		UMETA(DisplayName = "Cover"),
+	VTS_AMMO		UMETA(DisplayName = "Ammo"),
+	VTS_HEALTH		UMETA(DisplayName = "Health"),
+	VTS_OBJECT		UMETA(DisplayName = "Objective"),
+	VTS_NPC			UMETA(DisplayName = "NPC"),
+	VTS_STEALTH		UMETA(DisplayName = "Ammo")
+};
+
+UENUM(BlueprintType)
+enum class ECoverState : uint8
+{
+	CS_NONE		UMETA(DisplayName = "None"),
+	CS_MOVING	UMETA(DisplayName = "Moving to Cover"),
+	CS_COVER	UMETA(DisplayName = "In Cover")
+};
+
 UCLASS(config=Game)
 class AOmegaCharacter : public ACharacter
 {
@@ -78,9 +98,11 @@ protected:
 	void OnSpecial();
 
 	/** Handles moving forward/backward */
+	UFUNCTION(BlueprintCallable, Category = "Character Movement")
 	void MoveForward(float Val);
 
 	/** Handles stafing movement, left and right */
+	UFUNCTION(BlueprintCallable, Category = "Character Movement")
 	void MoveRight(float Val);
 
 	/**
@@ -183,16 +205,73 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (ClampMin = 0.f, ClampMax = 1.f))
 	float armorFactor = 0.2f;
 
+	/* these variables and functions handle crosshair behavior */
+	UPROPERTY(BlueprintReadOnly, Category = "Reticle")
+	EViewTargetState ReticleState = EViewTargetState::VTS_DEFAULT;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")	
+	float CoverInteractDistance = 750.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")
+	float PickupInteractDistance = 500.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")
+	float NPCInteractDistance = 250.f;
+
+	UFUNCTION(BlueprintCallable, Category = "Reticle")
+	void UpdateReticleState();
+
+	/* this function handles the base action/interact/sprint/cover decision */
+	UFUNCTION(BlueprintCallable, Category = "Action")
+	void Action();
+
+	/* these variables handle sliding behavior*/
+	UFUNCTION(BlueprintCallable, Category = "Sliding")
+	void HandleSliding(float DeltaTime);
+
+	UPROPERTY(BlueprintReadWrite, Category = "Sliding", meta = (ClampMin = 1.f, ClampMax = 10.f))
+	float SlideAcceleration = 7.f;
+	UPROPERTY(BlueprintReadOnly, Category = "Sliding")
+	bool bIsSliding = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Sliding")
+	FVector SlideDirection;
+	UPROPERTY(BlueprintReadOnly, Category = "Sliding")
+	float SlideSpeed = 0.f;
+
+	/* these variables and functions handle cover movement and behavior */
+	UFUNCTION(BlueprintCallable, Category = "Cover")
+	void HandleMovingToCover();			// for now just going to teleport - will add actual movement later
+	UFUNCTION(BlueprintCallable, Category = "Cover")
+	void HandleInCover();
+	UFUNCTION(BlueprintCallable, Category = "Cover")
+	void EnterCover();
+	UFUNCTION(BlueprintCallable, Category = "Cover")
+	void ExitCover();
+
+	UPROPERTY(BlueprintReadOnly, Category = "Cover")
+	ECoverState CoverState = ECoverState::CS_NONE;
+	UPROPERTY(BlueprintReadOnly, Category = "Cover")
+	class ACoverActorBase* CoverActor = nullptr;
+	UPROPERTY(BlueprintReadOnly, Category = "Cover")
+	FVector CoverNormalVector;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = -50.f, ClampMax = -100.f))
+	float fMinCoverDistance = -70.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = -50.f, ClampMax = -100.f))
+	float CoverActorGap = 5.f;
+
 private:
+	// original character values for reset after leaving sprint/crouch/aim/etc. states
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;
-	const float fQuickTurnAngle = 180.f;
 	FVector originalScopePosition;
 	float originalFieldOfView;
-	void StartReload();
-
 	FVector previousPosition;
 	FRotator previousRotation;
+
+	// how far to turn as part of the quick turn action
+	const float fQuickTurnAngle = 180.f;
+	void ProcessQuickTurnOnTick(float DeltaTime);
+
+	// internal utility to trigger a reload on the gun
+	void StartReload();
 
 	FVector aimLocation;
 	
