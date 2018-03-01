@@ -256,11 +256,20 @@ protected:
 	float fMinCoverDistance = -70.f;
 	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = -50.f, ClampMax = -100.f))
 	float CoverActorGap = 5.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover")
+	float coverRadiusFactor = 0.75f;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = 1.f, ClampMax = 5.f))
+	float MovingToCoverSpeedRate = 1.25f;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = 5.f, ClampMax = 50.f))
+	float CoverEntryThreshold = 10.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = 0.2f, ClampMax = 2.f))
+	float CoverExitThresholdFactor = 0.6f;
 
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states
 	float normalHeight = 0.f;
 	float normalSpeed = 0.f;
+	float normalRadius = 0.f;
 	FVector originalScopePosition;
 	float originalFieldOfView;
 	FVector previousPosition;
@@ -274,6 +283,7 @@ private:
 	void StartReload();
 
 	FVector aimLocation;
+	FVector coverEntryLocation;
 	
 protected:
 	// APawn interface

@@ -60,8 +60,9 @@ void AOmegaCharacter::BeginPlay()
 	GunActor->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 	CurrentWeapon = Cast<AOmegaGunBase>(GunActor->GetChildActor());
 
-	normalHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	normalHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	normalRadius = GetCapsuleComponent()->GetUnscaledCapsuleRadius();
 
 	originalScopePosition = Mesh1P->RelativeLocation;
 	originalFieldOfView = FirstPersonCameraComponent->FieldOfView;
@@ -89,14 +90,8 @@ void AOmegaCharacter::Tick(float DeltaSeconds)
 		previousPosition = GetActorLocation();
 	}
 
-	if (CoverState == ECoverState::CS_COVER)
-	{
-		HandleInCover();
-	}
-	else if (CoverState == ECoverState::CS_MOVING)
-	{
-		HandleMovingToCover();	// does nothing for now
-	}
+	if (CoverState == ECoverState::CS_COVER) HandleInCover();
+	else if (CoverState == ECoverState::CS_MOVING) HandleMovingToCover();
 }
 
 void AOmegaCharacter::DoCrouch()
@@ -236,7 +231,8 @@ void AOmegaCharacter::Action()
 
 	if (ReticleState == EViewTargetState::VTS_COVER)
 	{
-		EnterCover();
+		if (CoverState == ECoverState::CS_MOVING) ExitCover();
+		else EnterCover();
 	}
 	else if ((ReticleState == EViewTargetState::VTS_AMMO) ||
 		(ReticleState == EViewTargetState::VTS_HEALTH) ||
@@ -267,11 +263,23 @@ void AOmegaCharacter::HandleSliding(float DeltaTime)
 
 void AOmegaCharacter::HandleMovingToCover()
 {
+	FVector DeltaPosition = coverEntryLocation - GetActorLocation();
+	float DotX = UKismetMathLibrary::Dot_VectorVector(GetActorForwardVector(), DeltaPosition.GetSafeNormal());
+	float DotY = UKismetMathLibrary::Dot_VectorVector(GetActorRightVector(), DeltaPosition.GetSafeNormal());
+	AddMovementInput(GetActorForwardVector(), MovingToCoverSpeedRate * DotX);
+	AddMovementInput(GetActorRightVector(), MovingToCoverSpeedRate * DotY);
 
+	if ((FMath::Abs(DeltaPosition.X) <= CoverEntryThreshold) && (FMath::Abs(DeltaPosition.Y) <= CoverEntryThreshold))
+	{
+		if (bIsSprinting) DoSprint();
+		CoverState = ECoverState::CS_COVER;
+	}
 }
 
 void AOmegaCharacter::EnterCover()
 {
+	GetCapsuleComponent()->SetCapsuleRadius(coverRadiusFactor * normalRadius);
+
 	FHitResult* hit = new FHitResult();
 	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
 	FVector StartLoc = GetActorLocation();
@@ -285,14 +293,12 @@ void AOmegaCharacter::EnterCover()
 		CoverNormalVector = hit->Normal;
 		bool bIsShortCover = CoverActor->GetIsCrouchHeight();
 
-		if (bIsSprinting) DoSprint();
-		if ((!bIsShortCover && bIsCrouching) || (bIsShortCover && !bIsCrouching)) DoCrouch();
+		if ((!bIsShortCover && bIsCrouching) || (bIsShortCover && !bIsCrouching)) DoCrouch();	
 
-		FVector CoverEntryLocation = hit->Location;
-		CoverEntryLocation += CoverNormalVector * (GetCapsuleComponent()->GetUnscaledCapsuleRadius());
-		SetActorLocation(CoverEntryLocation);
+		coverEntryLocation = hit->Location;
+		coverEntryLocation += CoverNormalVector * (GetCapsuleComponent()->GetUnscaledCapsuleRadius());
 
-		CoverState = ECoverState::CS_COVER;
+		CoverState = ECoverState::CS_MOVING;
 	}
 	else
 	{
@@ -302,10 +308,11 @@ void AOmegaCharacter::EnterCover()
 
 void AOmegaCharacter::ExitCover()
 {
+	GetCapsuleComponent()->SetCapsuleRadius(normalRadius);
 	CoverState = ECoverState::CS_NONE;
 	CoverNormalVector = FVector::ZeroVector;
 	CoverActor = nullptr;
-
+	coverEntryLocation = FVector::ZeroVector;
 }
 
 void AOmegaCharacter::HandleInCover()
@@ -329,7 +336,8 @@ void AOmegaCharacter::HandleInCover()
 	FHitResult* hit = new FHitResult();
 	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
 
-	if (!GetWorld()->LineTraceSingleByObjectType(*hit, GetActorLocation(), GetActorLocation() + CoverNormalVector * fMinCoverDistance, ECollisionChannel::ECC_WorldStatic, params))
+	if (!GetWorld()->LineTraceSingleByObjectType(*hit, GetActorLocation(), GetActorLocation() + CoverNormalVector * fMinCoverDistance, ECollisionChannel::ECC_WorldStatic, params) ||
+		(UKismetMathLibrary::Dot_VectorVector(GetCharacterMovement()->GetLastInputVector(), CoverNormalVector) > CoverExitThresholdFactor))
 	{
 		ExitCover();
 	}
@@ -513,7 +521,7 @@ void AOmegaCharacter::OnSpecial()
 
 void AOmegaCharacter::MoveForward(float Value)
 {
-	if (bIsSliding) return;
+	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
 	// TODO: have forward movement away from cover break cover
 
 	if (Value != 0.0f)
@@ -528,7 +536,7 @@ void AOmegaCharacter::MoveForward(float Value)
 
 void AOmegaCharacter::MoveRight(float Value)
 {
-	if (bIsSliding) return;
+	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
 	// TODO: have strafing movement away from cover break cover
 
 	if (Value != 0.0f)
