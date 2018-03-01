@@ -42,7 +42,8 @@ void AOmegaGunBase::Reload()
 	if (currentGunAmmo == 0) return;
 
 	int32 bulletsNeeded = clipAmmoMax - currentClipAmmo;
-	currentClipAmmo = ((currentGunAmmo -= bulletsNeeded) >= 0) ? clipAmmoMax : currentGunAmmo;
+	currentClipAmmo = ((currentGunAmmo - bulletsNeeded) >= 0) ? clipAmmoMax : currentGunAmmo + currentClipAmmo;
+	currentGunAmmo = FMath::Max(currentGunAmmo - bulletsNeeded, 0);
 	GetWorldTimerManager().ClearTimer(ReloadTimer);
 }
 
@@ -69,6 +70,8 @@ void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile, con
 
 void AOmegaGunBase::StartReload()
 {
+	if (currentGunAmmo == 0 || currentClipAmmo == clipAmmoMax) return;
+
 	GetWorldTimerManager().SetTimer(ReloadTimer, this, &AOmegaGunBase::Reload, 1.2f);
 }
 
