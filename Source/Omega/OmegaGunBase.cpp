@@ -112,7 +112,15 @@ void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile, con
 		ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
 		// spawn the projectile at the muzzle
-		World->SpawnActor<AOmegaProjectile>(projectile, SpawnLocation, AimRotation, ActorSpawnParams);
+		AOmegaProjectile* SpawnedProjectile = World->SpawnActor<AOmegaProjectile>(projectile, SpawnLocation, AimRotation, ActorSpawnParams);
+		if (!SpawnedProjectile) 
+		{
+			if ((projectile != SecondaryProjectileClass) || (projectile == nullptr)) FireHitscan(AimTarget);
+			else
+			{
+				// call secondary projectile class > 'failed to spawn' behavior
+			}
+		}
 	}
 }
 
