@@ -7,6 +7,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "OmegaCharacter.h"
 
 // Sets default values
 AOmegaGunBase::AOmegaGunBase()
@@ -17,6 +18,51 @@ AOmegaGunBase::AOmegaGunBase()
 
 	GunSkeleton = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("GunSkeleton"));
 	RootComponent = GunSkeleton;
+}
+
+void AOmegaGunBase::ResetIsAbleToFire()
+{
+	IsAbleToFire = true;
+
+	if (OwningPlayerRef && IsTriggerHeld) PrimaryFire(OwningPlayerRef->GetAimLocation());
+}
+
+void AOmegaGunBase::AutomaticFire()
+{
+	if (!IsTriggerHeld)
+	{
+		PrimaryFireRateTimerHandle.Invalidate();
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::ResetIsAbleToFire, SingleFireRate);
+	}
+	else
+	{
+		IsAbleToFire = true;
+		PrimaryFire(OwningPlayerRef->GetAimLocation());
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::AutomaticFire, AutoFireRate);
+	}
+}
+
+void AOmegaGunBase::BurstFire()
+{
+	BurstRemaining--;
+
+	if (BurstRemaining == 0 && IsBurstActive)
+	{
+		PrimaryFireRateTimerHandle.Invalidate();
+		IsBurstActive = false;
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::ResetIsAbleToFire, SingleFireRate);
+	}
+	else
+	{
+		IsAbleToFire = true;
+		PrimaryFire(OwningPlayerRef->GetAimLocation());
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::BurstFire, AutoFireRate);
+	}
+}
+
+void AOmegaGunBase::SetOwningPlayerRef(AOmegaCharacter* OwningPlayer)
+{
+	OwningPlayerRef = OwningPlayer;
 }
 
 // Called when the game starts or when spawned
@@ -77,7 +123,7 @@ void AOmegaGunBase::StartReload()
 
 bool AOmegaGunBase::PrimaryFire(const FVector& AimTarget)
 {	
-	if (ReloadTimer.IsValid())
+	if (ReloadTimer.IsValid() || !IsAbleToFire)
 	{
 		return false;
 	}
@@ -87,15 +133,32 @@ bool AOmegaGunBase::PrimaryFire(const FVector& AimTarget)
 		return false;
 	}
 
+	IsAbleToFire = false;
+
 	// try and fire a projectile
 	if (ProjectileClass) FireProjectile(ProjectileClass, AimTarget);
-	else return false;
+	else return false;	// TODO: implement hitscan code in case of no projectile class
 
 	// try and play the sound if specified
 	if (PrimaryFireSound) UGameplayStatics::PlaySoundAtLocation(this, PrimaryFireSound, GetActorLocation());
 
 	// check if reload necessary
 	if (--currentClipAmmo == 0) StartReload();
+
+	if (TriggerConfig == EFireMode::FM_Single)
+	{
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::ResetIsAbleToFire, SingleFireRate);
+	}
+	else if (TriggerConfig == EFireMode::FM_Burst)
+	{
+		BurstRemaining = (IsBurstActive) ? BurstRemaining : BurstCount;
+		IsBurstActive = true;
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::BurstFire, AutoFireRate);
+	}
+	else
+	{
+		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::AutomaticFire, AutoFireRate);
+	}
 
 	return true;
 }

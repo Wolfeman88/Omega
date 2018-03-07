@@ -59,6 +59,7 @@ void AOmegaCharacter::BeginPlay()
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
 	GunActor->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 	CurrentWeapon = Cast<AOmegaGunBase>(GunActor->GetChildActor());
+	CurrentWeapon->SetOwningPlayerRef(this);
 
 	normalHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
@@ -379,6 +380,7 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
 	PlayerInputComponent->BindAction("PrimaryFire", IE_Pressed, this, &AOmegaCharacter::OnPrimaryFire);
+	PlayerInputComponent->BindAction("PrimaryFire", IE_Released, this, &AOmegaCharacter::OnPrimaryFireEnd);
 	PlayerInputComponent->BindAction("SecondaryFire", IE_Pressed, this, &AOmegaCharacter::OnSecondaryFire);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AOmegaCharacter::MoveForward);
@@ -448,6 +450,11 @@ void AOmegaCharacter::RegainHealth(float health)
 	currentHealth = FMath::Min(maxHealth, currentHealth + health);
 }
 
+FVector AOmegaCharacter::GetAimLocation()
+{
+	return aimLocation;
+}
+
 void AOmegaCharacter::OnPrimaryFire()
 {
 	if (bIsSprinting)
@@ -463,6 +470,8 @@ void AOmegaCharacter::OnPrimaryFire()
 	}
 	else if (CurrentWeapon)
 	{
+		CurrentWeapon->IsTriggerHeld = true;
+
 		if (CurrentWeapon->PrimaryFire(aimLocation))
 		{
 			// try and play a firing animation if specified
@@ -476,6 +485,14 @@ void AOmegaCharacter::OnPrimaryFire()
 				}
 			}
 		}
+	}
+}
+
+void AOmegaCharacter::OnPrimaryFireEnd()
+{
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->IsTriggerHeld = false;
 	}
 }
 

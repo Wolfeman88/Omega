@@ -83,11 +83,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void RegainHealth(float health);
 
+	UFUNCTION(BlueprintCallable, Category = "Reticle")
+	FVector GetAimLocation();
+
 protected:
 	
 	/** Fires the primary projectile/ability of the weapon. */
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void OnPrimaryFire();	
+	void OnPrimaryFire();
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
+	void OnPrimaryFireEnd();
 	
 	/** Fires the secondary projectile/ability of the weapon. */
 	UFUNCTION(BlueprintCallable, Category = "Projectile")

@@ -6,6 +6,14 @@
 #include "GameFramework/Actor.h"
 #include "OmegaGunBase.generated.h"
 
+UENUM(BlueprintType)
+enum class EFireMode : uint8
+{
+	FM_Single	UMETA(DisplayName = "Semi-automatic"),
+	FM_Burst	UMETA(DisplayName = "Burst-fire"),
+	FM_Auto		UMETA(DisplayName = "Automatic")
+};
+
 UCLASS()
 class OMEGA_API AOmegaGunBase : public AActor
 {
@@ -64,6 +72,31 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	class USoundBase* SecondaryFireSound;
 
+	/* these variables and functions handle the trigger configuration settings for the weapon */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon Configuration")
+	EFireMode TriggerConfig = EFireMode::FM_Single;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Configuration")
+	float SingleFireRate = 0.5f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Configuration")
+	float AutoFireRate = 0.1f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon Configuration")
+	int32 BurstCount = 2;
+	int32 BurstRemaining = 0;
+	bool IsAbleToFire = true;
+	bool IsTriggerHeld = false;
+	bool IsBurstActive = false;
+
+	UFUNCTION(BlueprintCallable, Category = "Fire Rate")
+	void ResetIsAbleToFire();
+	UFUNCTION(BlueprintCallable, Category = "Fire Rate")
+	void AutomaticFire();
+	UFUNCTION(BlueprintCallable, Category = "Fire Rate")
+	void BurstFire();
+
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	void SetOwningPlayerRef(class AOmegaCharacter* OwningPlayer);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -71,4 +104,7 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Appearance")
 	class USkeletalMeshComponent* GunSkeleton;
 
+private:
+	AOmegaCharacter* OwningPlayerRef = nullptr;
+	FTimerHandle PrimaryFireRateTimerHandle;
 };
