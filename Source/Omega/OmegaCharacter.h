@@ -98,9 +98,13 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
 	void OnSecondaryFire();
 
-	/** Fires the secondary projectile/ability of the weapon. */
+	/** activates player-specific special ability */
 	UFUNCTION(BlueprintCallable, Category = "Special")
 	void OnSpecial();
+
+	/** fires off player-specific melee ability */
+	UFUNCTION(BlueprintCallable, Category = "Melee")
+	void OnMelee();
 
 	/** Handles moving forward/backward */
 	UFUNCTION(BlueprintCallable, Category = "Character Movement")
@@ -271,6 +275,12 @@ protected:
 	float CoverEntryThreshold = 10.f;
 	UPROPERTY(EditDefaultsOnly, Category = "Cover", meta = (ClampMin = 0.2f, ClampMax = 2.f))
 	float CoverExitThresholdFactor = 0.6f;
+
+	/* these functions handle melee */
+	UPROPERTY(EditDefaultsOnly, Category = "Melee")
+	float DefaultMeleeForce = 800000.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Melee")
+	float DefaultMeleeDamage = 5.f;
 
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states

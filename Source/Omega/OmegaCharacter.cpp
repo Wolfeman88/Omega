@@ -16,6 +16,7 @@
 
 #include <EngineGlobals.h>
 #include <Runtime/Engine/Classes/Engine/Engine.h>
+#include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -414,6 +415,8 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("ResetAim", IE_Pressed, this, &AOmegaCharacter::ResetAim);
 
 	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &AOmegaCharacter::StartReload);
+
+	PlayerInputComponent->BindAction("Melee", IE_Pressed, this, &AOmegaCharacter::OnMelee);
 }
 
 void AOmegaCharacter::ReceiveDamage(float damage)
@@ -538,6 +541,41 @@ void AOmegaCharacter::OnSpecial()
 
 	// make call to character-specific special ability function
 	// e.g. duration buff, toggled mode, hold-to-engage behavior
+}
+
+void AOmegaCharacter::OnMelee()
+{
+	FHitResult* hit = new FHitResult();
+	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
+	FVector CamLoc;
+	FRotator CamRot;
+	GetActorEyesViewPoint(CamLoc, CamRot);
+
+	bool bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
+
+	if (bHitSuccess)
+	{
+		DrawDebugLine(GetWorld(), CamLoc + GetActorRightVector() * -GetCapsuleComponent()->GetUnscaledCapsuleRadius(), hit->Location, FColor::Green, false, 1.f, 0, 20.f);
+
+		if ((hit->GetActor() != NULL) && (hit->GetComponent() != NULL))
+		{
+			if (hit->GetComponent()->IsSimulatingPhysics())
+			{
+				hit->GetComponent()->AddImpulseAtLocation((hit->TraceEnd - CamLoc).SafeNormal() * DefaultMeleeForce, GetActorLocation());
+			}
+
+			AOmegaCharacter* omegaActor = Cast<AOmegaCharacter>(hit->GetActor());
+
+			if (omegaActor)
+			{
+				omegaActor->ReceiveDamage(DefaultMeleeDamage);
+			}
+		}
+	}
+	else
+	{
+		DrawDebugLine(GetWorld(), CamLoc + GetActorRightVector() * -GetCapsuleComponent()->GetUnscaledCapsuleRadius(), CamLoc + CamRot.Vector() * NPCInteractDistance, FColor::Black, false, 1.f, 0, 20.f);
+	}
 }
 
 void AOmegaCharacter::MoveForward(float Value)
