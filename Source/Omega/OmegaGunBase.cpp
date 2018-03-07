@@ -142,7 +142,7 @@ void AOmegaGunBase::FireHitscan(const FVector & AimTarg)
 
 		if (World->LineTraceSingleByObjectType(*hit, MuzzleLocation, AimTarg + HitscanRangeBuffer * MuzzleRotation.Vector(), FCollisionObjectQueryParams::AllObjects, params))
 		{
-			DrawDebugLine(World, MuzzleLocation, hit->Location, FColor::Blue, false, 10.f, 0, 20.f);
+			DrawDebugLine(World, MuzzleLocation, hit->Location, FColor::Blue, false, 0.25f, 0, 5.f);
 
 			if ((hit->GetActor() != NULL) && (hit->GetComponent() != NULL))
 			{
@@ -161,7 +161,7 @@ void AOmegaGunBase::FireHitscan(const FVector & AimTarg)
 		}
 		else
 		{
-			DrawDebugLine(World, MuzzleLocation, AimTarg, FColor::Red, false, 10.f, 0, 20.f);
+			DrawDebugLine(World, MuzzleLocation, AimTarg, FColor::Blue, false, 0.25f, 0, 5.f);
 		}
 	}
 }
