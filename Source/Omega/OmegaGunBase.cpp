@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "OmegaCharacter.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AOmegaGunBase::AOmegaGunBase()
@@ -98,12 +99,13 @@ void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile, con
 	UWorld* const World = GetWorld();
 	if (World)
 	{
+		// TODO: once weapon gimbal in place, rework to use combined "weapon rotation" vector instead of control rotation
 		FVector MuzzleLocation = GunSkeleton->GetSocketLocation("Muzzle");
-		FRotator MuzzleRotation = GunSkeleton->GetSocketRotation("Muzzle");
-		FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(MuzzleLocation, AimTarget);
-		if (AimTarget.IsNearlyZero()) AimRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
-		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+		FRotator MuzzleRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
 		const FVector SpawnLocation = MuzzleLocation + MuzzleRotation.RotateVector(FVector::ForwardVector * 50.f);
+		FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(SpawnLocation, AimTarget);
+
+		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
 
 		//Set Spawn Collision Handling Override
 		FActorSpawnParameters ActorSpawnParams;
@@ -111,6 +113,48 @@ void AOmegaGunBase::FireProjectile(TSubclassOf<AOmegaProjectile> projectile, con
 
 		// spawn the projectile at the muzzle
 		World->SpawnActor<AOmegaProjectile>(projectile, SpawnLocation, AimRotation, ActorSpawnParams);
+	}
+}
+
+void AOmegaGunBase::FireHitscan(const FVector & AimTarg)
+{
+	UWorld* const World = GetWorld();
+	if (World)
+	{
+		//const FName HitscanTrace = "Trace Tag";
+		//World->DebugDrawTraceTag = HitscanTrace;
+
+		FHitResult* hit = new FHitResult();
+		FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
+		params.AddIgnoredActor(OwningPlayerRef);
+		//params.TraceTag = "Trace Tag";
+
+		FVector MuzzleLocation = GunSkeleton->GetSocketLocation("Muzzle");
+		FRotator MuzzleRotation = UGameplayStatics::GetPlayerController(this, 0)->GetControlRotation();
+
+		if (World->LineTraceSingleByObjectType(*hit, MuzzleLocation, AimTarg + HitscanRangeBuffer * MuzzleRotation.Vector(), FCollisionObjectQueryParams::AllObjects, params))
+		{
+			DrawDebugLine(World, MuzzleLocation, hit->Location, FColor::Blue, false, 10.f, 0, 20.f);
+
+			if ((hit->GetActor() != NULL) && (hit->GetComponent() != NULL))
+			{
+				if (hit->GetComponent()->IsSimulatingPhysics())
+				{
+					hit->GetComponent()->AddImpulseAtLocation((AimTarg - MuzzleLocation).SafeNormal() * DefaultHitscanForce, GetActorLocation());
+				}
+
+				AOmegaCharacter* omegaActor = Cast<AOmegaCharacter>(hit->GetActor());
+
+				if (omegaActor)
+				{
+					omegaActor->ReceiveDamage(DefaultHitscanDamage);
+				}
+			}
+		}
+		else
+		{
+			DrawDebugLine(World, MuzzleLocation, AimTarg, FColor::Red, false, 10.f, 0, 20.f);
+		}
 	}
 }
 
@@ -137,7 +181,7 @@ bool AOmegaGunBase::PrimaryFire(const FVector& AimTarget)
 
 	// try and fire a projectile
 	if (ProjectileClass) FireProjectile(ProjectileClass, AimTarget);
-	else return false;	// TODO: implement hitscan code in case of no projectile class
+	else FireHitscan(AimTarget); 
 
 	// try and play the sound if specified
 	if (PrimaryFireSound) UGameplayStatics::PlaySoundAtLocation(this, PrimaryFireSound, GetActorLocation());

@@ -214,7 +214,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Reticle")
 	EViewTargetState ReticleState = EViewTargetState::VTS_DEFAULT;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")
+	float MaxAimDistance = 10000.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")
 	float CoverInteractDistance = 750.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reticle")
 	float PickupInteractDistance = 500.f;

@@ -184,9 +184,9 @@ void AOmegaCharacter::UpdateReticleState()
 	GetActorEyesViewPoint(CamLoc, CamRot);
 
 	ReticleState = EViewTargetState::VTS_DEFAULT;
-	aimLocation = FVector::ZeroVector;
+	aimLocation = CamLoc + CamRot.Vector() * MaxAimDistance;
 
-	bool bHitSuccess = GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * CoverInteractDistance, ECollisionChannel::ECC_WorldDynamic, params);
+	bool bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * CoverInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
 
 	if (bHitSuccess)
 	{
@@ -199,11 +199,11 @@ void AOmegaCharacter::UpdateReticleState()
 		}
 		else
 		{
-			bHitSuccess = GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, ECollisionChannel::ECC_WorldDynamic, params);
+			bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
 
 			if (false)
 			{	// TODO: NPC and Pickup classes to detect and handle reticle - not worried about this yet
-				if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+				if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 				{
 					ReticleState = EViewTargetState::VTS_NPC;
 					aimLocation = hit->Location;
@@ -212,7 +212,7 @@ void AOmegaCharacter::UpdateReticleState()
 					// EViewTargetState::VTS_STEALTH
 				}
 
-				else if (GetWorld()->LineTraceSingleByChannel(*hit, CamLoc, CamLoc + CamRot.Vector() * PickupInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+				else if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 				{
 					ReticleState = EViewTargetState::VTS_OBJECT;
 					aimLocation = hit->Location;
@@ -223,6 +223,10 @@ void AOmegaCharacter::UpdateReticleState()
 				}
 			}
 		}
+	}
+	{
+		// nothing closer than CoverInteractDistance but want to set aim location based on trace up to max distance
+		if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * MaxAimDistance, FCollisionObjectQueryParams::AllObjects, params)) aimLocation = hit->Location;
 	}
 }
 
@@ -285,8 +289,8 @@ void AOmegaCharacter::EnterCover()
 	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
 	FVector StartLoc = GetActorLocation();
 	FVector StartRot = GetActorForwardVector();
-	
-	if (GetWorld()->LineTraceSingleByChannel(*hit, StartLoc, StartLoc + StartRot * CoverInteractDistance, ECollisionChannel::ECC_WorldDynamic, params))
+
+	if (GetWorld()->LineTraceSingleByObjectType(*hit, StartLoc, StartLoc + StartRot * CoverInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 	{
 		if (hit->GetActor() == CoverActor) return;
 
@@ -337,7 +341,7 @@ void AOmegaCharacter::HandleInCover()
 	FHitResult* hit = new FHitResult();
 	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
 
-	if (!GetWorld()->LineTraceSingleByObjectType(*hit, GetActorLocation(), GetActorLocation() + CoverNormalVector * fMinCoverDistance, ECollisionChannel::ECC_WorldStatic, params) ||
+	if (!GetWorld()->LineTraceSingleByObjectType(*hit, GetActorLocation(), GetActorLocation() + CoverNormalVector * fMinCoverDistance, FCollisionObjectQueryParams::AllObjects, params) ||
 		(UKismetMathLibrary::Dot_VectorVector(GetCharacterMovement()->GetLastInputVector(), CoverNormalVector) > CoverExitThresholdFactor))
 	{
 		ExitCover();

@@ -21,6 +21,7 @@ class OMEGA_API AOmegaGunBase : public AActor
 
 	virtual void Reload();
 	virtual void FireProjectile(TSubclassOf<class AOmegaProjectile> projectile, const FVector& AimTarget);
+	virtual void FireHitscan(const FVector& AimTarg);
 
 	TArray<FTimerHandle*> SecondaryChargeTimers;
 	
@@ -103,6 +104,13 @@ protected:
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Appearance")
 	class USkeletalMeshComponent* GunSkeleton;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Gun")
+	float DefaultHitscanDamage = 10.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Gun")
+	float DefaultHitscanForce = 100000.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Gun")
+	float HitscanRangeBuffer = 50.f;
 
 private:
 	AOmegaCharacter* OwningPlayerRef = nullptr;
