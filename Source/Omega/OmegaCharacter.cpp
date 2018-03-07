@@ -539,7 +539,6 @@ void AOmegaCharacter::OnSpecial()
 void AOmegaCharacter::MoveForward(float Value)
 {
 	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
-	// TODO: have forward movement away from cover break cover
 
 	if (Value != 0.0f)
 	{
@@ -554,7 +553,6 @@ void AOmegaCharacter::MoveForward(float Value)
 void AOmegaCharacter::MoveRight(float Value)
 {
 	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
-	// TODO: have strafing movement away from cover break cover
 
 	if (Value != 0.0f)
 	{
