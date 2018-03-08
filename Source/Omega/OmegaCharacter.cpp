@@ -362,6 +362,8 @@ void AOmegaCharacter::HandleInCover()
 
 void AOmegaCharacter::StartWeaponSwap()
 {
+	if (GetWorldTimerManager().IsTimerActive(CurrentWeapon->GetPrimaryFireTimerHandle())) return;
+
 	if (IsWeaponPrimary) GunActor_Primary->SetVisibility(false, true);
 	else GunActor_Secondary->SetVisibility(false, true);
 
@@ -386,7 +388,6 @@ void AOmegaCharacter::FinishWeaponSwap()
 		newWeapon = Cast<AOmegaGunBase>(GunActor_Secondary->GetChildActor());
 	}
 
-	CurrentWeapon->GetPrimaryFireTimerHandle().Invalidate();
 	CurrentWeapon = newWeapon;
 }
 
