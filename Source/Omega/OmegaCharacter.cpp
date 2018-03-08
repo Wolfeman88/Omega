@@ -13,6 +13,7 @@
 #include "OmegaGunBase.h"
 #include "CoverActorBase.h"
 #include "Components/ChildActorComponent.h"
+#include "Runtime/Engine/Public/TimerManager.h"
 
 #include <EngineGlobals.h>
 #include <Runtime/Engine/Classes/Engine/Engine.h>
@@ -47,9 +48,13 @@ AOmegaCharacter::AOmegaCharacter()
 	Mesh1P->RelativeRotation = FRotator(1.9f, -19.19f, 5.2f);
 	Mesh1P->RelativeLocation = FVector(-0.5f, -4.4f, -155.7f);
 
-	// creating a default child actor component to 'hold' the current weapon
-	GunActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("GunActor"));
-	GunActor->SetupAttachment(Mesh1P);
+	// creating a default child actor component to 'hold' the primary weapon
+	GunActor_Primary = CreateDefaultSubobject<UChildActorComponent>(TEXT("GunActorPrimary"));
+	GunActor_Primary->SetupAttachment(Mesh1P);
+
+	// creating a default child actor component to 'hold' the secondary weapon
+	GunActor_Secondary = CreateDefaultSubobject<UChildActorComponent>(TEXT("GunActorSecondary"));
+	GunActor_Secondary->SetupAttachment(Mesh1P);
 }
 
 void AOmegaCharacter::BeginPlay()
@@ -58,9 +63,15 @@ void AOmegaCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
-	GunActor->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
-	CurrentWeapon = Cast<AOmegaGunBase>(GunActor->GetChildActor());
+	GunActor_Primary->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	CurrentWeapon = Cast<AOmegaGunBase>(GunActor_Primary->GetChildActor());
 	CurrentWeapon->SetOwningPlayerRef(this);
+
+	// attach the secondary weapon as well, but hide it for now until a weapon swap occurs
+	GunActor_Secondary->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	AOmegaGunBase* tempSecondWeapon = Cast<AOmegaGunBase>(GunActor_Secondary->GetChildActor());
+	tempSecondWeapon->SetOwningPlayerRef(this);
+	GunActor_Secondary->SetVisibility(false, true);
 
 	normalHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	normalSpeed = GetCharacterMovement()->MaxWalkSpeed;
@@ -349,6 +360,36 @@ void AOmegaCharacter::HandleInCover()
 	}
 }
 
+void AOmegaCharacter::StartWeaponSwap()
+{
+	if (IsWeaponPrimary) GunActor_Primary->SetVisibility(false, true);
+	else GunActor_Secondary->SetVisibility(false, true);
+
+	IsWeaponPrimary = !IsWeaponPrimary;
+
+	GetWorldTimerManager().SetTimer(WeaponSwapTimerHandle, this, &AOmegaCharacter::FinishWeaponSwap, WeaponSwapTime);
+}
+
+void AOmegaCharacter::FinishWeaponSwap()
+{
+	WeaponSwapTimerHandle.Invalidate();
+	AOmegaGunBase* newWeapon = nullptr;
+
+	if (IsWeaponPrimary)
+	{
+		GunActor_Primary->SetVisibility(true, true);
+		newWeapon = Cast<AOmegaGunBase>(GunActor_Primary->GetChildActor());
+	}
+	else
+	{
+		GunActor_Secondary->SetVisibility(true, true);
+		newWeapon = Cast<AOmegaGunBase>(GunActor_Secondary->GetChildActor());
+	}
+
+	CurrentWeapon->GetPrimaryFireTimerHandle().Invalidate();
+	CurrentWeapon = newWeapon;
+}
+
 void AOmegaCharacter::ProcessQuickTurnOnTick(float DeltaTime)
 {
 	if (quickTurnDelta > 0.f)
@@ -417,6 +458,8 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &AOmegaCharacter::StartReload);
 
 	PlayerInputComponent->BindAction("Melee", IE_Pressed, this, &AOmegaCharacter::OnMelee);
+
+	PlayerInputComponent->BindAction("ChangeWeapon", IE_Pressed, this, &AOmegaCharacter::StartWeaponSwap);
 }
 
 void AOmegaCharacter::ReceiveDamage(float damage)
@@ -561,7 +604,7 @@ void AOmegaCharacter::OnMelee()
 		{
 			if (hit->GetComponent()->IsSimulatingPhysics())
 			{
-				hit->GetComponent()->AddImpulseAtLocation((hit->TraceEnd - CamLoc).SafeNormal() * DefaultMeleeForce, GetActorLocation());
+				hit->GetComponent()->AddImpulseAtLocation((hit->TraceEnd - CamLoc).GetSafeNormal() * DefaultMeleeForce, GetActorLocation());
 			}
 
 			AOmegaCharacter* omegaActor = Cast<AOmegaCharacter>(hit->GetActor());

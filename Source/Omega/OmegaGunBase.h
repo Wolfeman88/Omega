@@ -98,6 +98,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	void SetOwningPlayerRef(class AOmegaCharacter* OwningPlayer);
 
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	FTimerHandle GetPrimaryFireTimerHandle();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

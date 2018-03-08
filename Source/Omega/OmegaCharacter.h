@@ -50,9 +50,12 @@ class AOmegaCharacter : public ACharacter
 	class UCameraComponent* FirstPersonCameraComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UChildActorComponent* GunActor;
+	class UChildActorComponent* GunActor_Primary;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	class UChildActorComponent* GunActor_Secondary;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	class AOmegaGunBase* CurrentWeapon;
 
 public:
@@ -282,6 +285,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Melee")
 	float DefaultMeleeDamage = 5.f;
 
+	/* these functions and variables handle changing weapons */
+	UFUNCTION(BlueprintCallable, Category = "Weapon Swap")
+	void StartWeaponSwap();
+	UFUNCTION(BlueprintCallable, Category = "Weapon Swap")
+	void FinishWeaponSwap();
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Swap", meta = (ClampMin = 0.5f, ClampMax = 3.f))
+	float WeaponSwapTime = 1.f;
+
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states
 	float normalHeight = 0.f;
@@ -301,6 +313,10 @@ private:
 
 	FVector aimLocation;
 	FVector coverEntryLocation;
+
+	// internal state and variables for weapon swapping
+	bool IsWeaponPrimary = true;
+	FTimerHandle WeaponSwapTimerHandle;
 	
 protected:
 	// APawn interface

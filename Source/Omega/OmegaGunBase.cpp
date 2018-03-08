@@ -66,6 +66,11 @@ void AOmegaGunBase::SetOwningPlayerRef(AOmegaCharacter* OwningPlayer)
 	OwningPlayerRef = OwningPlayer;
 }
 
+FTimerHandle AOmegaGunBase::GetPrimaryFireTimerHandle()
+{
+	return PrimaryFireRateTimerHandle;
+}
+
 // Called when the game starts or when spawned
 void AOmegaGunBase::BeginPlay()
 {
@@ -148,7 +153,7 @@ void AOmegaGunBase::FireHitscan(const FVector & AimTarg)
 			{
 				if (hit->GetComponent()->IsSimulatingPhysics())
 				{
-					hit->GetComponent()->AddImpulseAtLocation((AimTarg - MuzzleLocation).SafeNormal() * DefaultHitscanForce, GetActorLocation());
+					hit->GetComponent()->AddImpulseAtLocation((AimTarg - MuzzleLocation).GetSafeNormal() * DefaultHitscanForce, GetActorLocation());
 				}
 
 				AOmegaCharacter* omegaActor = Cast<AOmegaCharacter>(hit->GetActor());
