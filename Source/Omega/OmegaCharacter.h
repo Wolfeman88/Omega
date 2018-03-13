@@ -25,7 +25,7 @@ enum class EViewTargetState : uint8
 	VTS_HEALTH		UMETA(DisplayName = "Health"),
 	VTS_OBJECT		UMETA(DisplayName = "Objective"),
 	VTS_NPC			UMETA(DisplayName = "NPC"),
-	VTS_STEALTH		UMETA(DisplayName = "Ammo")
+	VTS_STEALTH		UMETA(DisplayName = "Stealth")
 };
 
 UENUM(BlueprintType)
@@ -88,6 +88,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Reticle")
 	FVector GetAimLocation();
+
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	void RegainAmmo(int32 ammo);
 
 protected:
 	
@@ -317,6 +320,9 @@ private:
 	// internal state and variables for weapon swapping
 	bool IsWeaponPrimary = true;
 	FTimerHandle WeaponSwapTimerHandle;
+
+	class APickup* OverlappedPickupRef;
+	bool IsOverlappingPickup = false;
 	
 protected:
 	// APawn interface
@@ -329,5 +335,10 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE class UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
+
+	UFUNCTION(BlueprintCallable, Category = "Overlap")
+	void SetOverlappingReticle(APickup* OverlappedPickup);
+	UFUNCTION(BlueprintCallable, Category = "Overlap")
+	void ClearOverlappingReticle();
 };
 

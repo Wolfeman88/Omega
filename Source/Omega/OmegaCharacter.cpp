@@ -14,6 +14,10 @@
 #include "CoverActorBase.h"
 #include "Components/ChildActorComponent.h"
 #include "Runtime/Engine/Public/TimerManager.h"
+#include "Pickup.h"
+#include "OmegaHealthPickup.h"
+#include "OmegaAmmoPickup.h"
+#include "OmegaObjectivePickup.h"
 
 #include <EngineGlobals.h>
 #include <Runtime/Engine/Classes/Engine/Engine.h>
@@ -195,7 +199,8 @@ void AOmegaCharacter::UpdateReticleState()
 	FRotator CamRot;
 	GetActorEyesViewPoint(CamLoc, CamRot);
 
-	ReticleState = EViewTargetState::VTS_DEFAULT;
+	OverlappedPickupRef = nullptr;
+	ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_DEFAULT;
 	aimLocation = CamLoc + CamRot.Vector() * MaxAimDistance;
 
 	bool bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * CoverInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
@@ -206,18 +211,32 @@ void AOmegaCharacter::UpdateReticleState()
 
 		if (coverActor)
 		{
-			ReticleState = EViewTargetState::VTS_COVER;
+			ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_COVER;
 			aimLocation = hit->Location;
 		}
 		else
 		{
-			bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
+			bHitSuccess = GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * PickupInteractDistance, FCollisionObjectQueryParams::AllObjects, params);
+
+			if (bHitSuccess)
+			{
+				APickup* pickupActor = Cast<APickup, AActor>(hit->GetActor());
+
+				if (pickupActor)
+				{
+					OverlappedPickupRef = pickupActor;
+
+					if (Cast<AOmegaHealthPickup, APickup>(pickupActor)) ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_HEALTH;
+					else if (Cast<AOmegaAmmoPickup, APickup>(pickupActor)) ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_AMMO;
+					else if (Cast<AOmegaObjectivePickup, APickup>(pickupActor)) ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_OBJECT;
+				}
+			}
 
 			if (false)
 			{	// TODO: NPC and Pickup classes to detect and handle reticle - not worried about this yet
 				if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 				{
-					ReticleState = EViewTargetState::VTS_NPC;
+					ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_NPC;
 					aimLocation = hit->Location;
 					// TODO: differentiate between talk and stealth attack reticle behavior
 					// potentially dot product of both actors forward vectors - if positive (facing away), stealth; if negative (facing), talk
@@ -226,7 +245,7 @@ void AOmegaCharacter::UpdateReticleState()
 
 				else if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 				{
-					ReticleState = EViewTargetState::VTS_OBJECT;
+					ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_OBJECT;
 					aimLocation = hit->Location;
 					// TODO: differentiate between objective, health, and ammo pickups
 					// need to make c++ classes for those pickups and if/else check
@@ -255,13 +274,13 @@ void AOmegaCharacter::Action()
 		(ReticleState == EViewTargetState::VTS_HEALTH) ||
 		(ReticleState == EViewTargetState::VTS_OBJECT))
 	{
-		// pickup object
+		OverlappedPickupRef->Pickup(this);
 	}
 	else if (ReticleState == EViewTargetState::VTS_NPC)
 	{
-		// talk to NPC
+		// talk to NPC if facing
 	}
-	else if (ReticleState == EViewTargetState::VTS_HEALTH)
+	else if (ReticleState == EViewTargetState::VTS_STEALTH)
 	{ 
 		// initiate stealth kill
 	}
@@ -463,6 +482,22 @@ void AOmegaCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 	PlayerInputComponent->BindAction("ChangeWeapon", IE_Pressed, this, &AOmegaCharacter::StartWeaponSwap);
 }
 
+void AOmegaCharacter::SetOverlappingReticle(APickup* OverlappedPickup)
+{
+	IsOverlappingPickup = true;
+	OverlappedPickupRef = OverlappedPickup;
+	
+	if (Cast<AOmegaHealthPickup, APickup>(OverlappedPickupRef)) ReticleState = EViewTargetState::VTS_HEALTH; 
+	else if (Cast<AOmegaAmmoPickup, APickup>(OverlappedPickupRef)) ReticleState = EViewTargetState::VTS_AMMO;
+	else if (Cast<AOmegaObjectivePickup, APickup>(OverlappedPickupRef)) ReticleState = EViewTargetState::VTS_OBJECT;
+}
+
+void AOmegaCharacter::ClearOverlappingReticle()
+{
+	IsOverlappingPickup = false;
+	OverlappedPickupRef = nullptr;
+}
+
 void AOmegaCharacter::ReceiveDamage(float damage)
 {
 	float remainingDamage = 0.f;
@@ -504,6 +539,11 @@ void AOmegaCharacter::RegainHealth(float health)
 FVector AOmegaCharacter::GetAimLocation()
 {
 	return aimLocation;
+}
+
+void AOmegaCharacter::RegainAmmo(int32 ammo)
+{
+	if (CurrentWeapon) CurrentWeapon->currentGunAmmo += ammo; 
 }
 
 void AOmegaCharacter::OnPrimaryFire()
