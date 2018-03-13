@@ -297,6 +297,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Swap", meta = (ClampMin = 0.5f, ClampMax = 3.f))
 	float WeaponSwapTime = 1.f;
 
+	/** these variables and functions handle leaning behavior in cover */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leaning", meta = (ClampMin = 0.f, ClampMax = 100.f))
+	float LeanDisplacementMax = 50.f;
+
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states
 	float normalHeight = 0.f;
@@ -323,6 +327,8 @@ private:
 
 	class APickup* OverlappedPickupRef;
 	bool IsOverlappingPickup = false;
+
+	float InitialLeanDisplacement = 0.f;
 	
 protected:
 	// APawn interface

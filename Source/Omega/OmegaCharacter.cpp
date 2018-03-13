@@ -89,6 +89,8 @@ void AOmegaCharacter::BeginPlay()
 
 	previousPosition = GetActorLocation();
 	previousRotation = GetControlRotation();
+
+	InitialLeanDisplacement = FirstPersonCameraComponent->GetRelativeTransform().GetLocation().Z;
 }
 
 void AOmegaCharacter::Tick(float DeltaSeconds)
@@ -666,6 +668,15 @@ void AOmegaCharacter::MoveForward(float Value)
 {
 	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
 
+	if (bIsScoped && CoverState == ECoverState::CS_COVER)
+	{
+		FVector currentLocation = FirstPersonCameraComponent->GetRelativeTransform().GetLocation();
+		float newZ = FMath::Clamp(currentLocation.Z + GetWorld()->GetDeltaSeconds() * LeanDisplacementMax * Value, InitialLeanDisplacement - LeanDisplacementMax, InitialLeanDisplacement + LeanDisplacementMax);
+		FirstPersonCameraComponent->SetRelativeLocation(FVector::UpVector * newZ);
+
+		return;
+	}
+
 	if (Value != 0.0f)
 	{
 		// add movement in that direction
@@ -679,6 +690,15 @@ void AOmegaCharacter::MoveForward(float Value)
 void AOmegaCharacter::MoveRight(float Value)
 {
 	if (bIsSliding || CoverState == ECoverState::CS_MOVING) return;
+
+	if (bIsScoped && CoverState == ECoverState::CS_COVER)
+	{
+		FVector currentLocation = FirstPersonCameraComponent->GetRelativeTransform().GetLocation();
+		float newY = FMath::Clamp(currentLocation.Y + GetWorld()->GetDeltaSeconds() * LeanDisplacementMax * Value, InitialLeanDisplacement - LeanDisplacementMax, InitialLeanDisplacement + LeanDisplacementMax);
+		FirstPersonCameraComponent->SetRelativeLocation(FVector::UpVector * newY);
+
+		return;
+	}
 
 	if (Value != 0.0f)
 	{
