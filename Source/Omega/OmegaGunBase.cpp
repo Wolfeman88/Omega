@@ -237,7 +237,7 @@ bool AOmegaGunBase::SecondaryFire(const FVector& AimTarget)
 		FTimerHandle* newestChargeTimer = new FTimerHandle();
 		SecondaryChargeTimers.Add(newestChargeTimer);
 
-		w->GetTimerManager().SetTimer(*newestChargeTimer, this, &AOmegaGunBase::AddCharge, 3.f);
+		w->GetTimerManager().SetTimer(*newestChargeTimer, this, &AOmegaGunBase::AddCharge, SecondaryRechargeTimer);
 		currentSecondaryCharges--;
 	}
 

@@ -74,7 +74,7 @@ void AOmegaCharacter::BeginPlay()
 	// attach the secondary weapon as well, but hide it for now until a weapon swap occurs
 	GunActor_Secondary->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 	AOmegaGunBase* tempSecondWeapon = Cast<AOmegaGunBase>(GunActor_Secondary->GetChildActor());
-	tempSecondWeapon->SetOwningPlayerRef(this);
+	if (tempSecondWeapon) tempSecondWeapon->SetOwningPlayerRef(this);
 	GunActor_Secondary->SetVisibility(false, true);
 
 	normalHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
@@ -206,7 +206,7 @@ void AOmegaCharacter::UpdateReticleState()
 	FVector CamLoc = FirstPersonCameraComponent->GetComponentTransform().GetLocation();
 	FRotator CamRot = GetControlRotation();
 
-	OverlappedPickupRef = nullptr;
+	OverlappedPickupRef = (IsOverlappingPickup) ? OverlappedPickupRef : nullptr;
 	ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_DEFAULT;
 	aimLocation = CamLoc + CamRot.Vector() * MaxAimDistance;
 
@@ -380,6 +380,7 @@ void AOmegaCharacter::HandleInCover()
 void AOmegaCharacter::StartWeaponSwap()
 {
 	if (GetWorldTimerManager().IsTimerActive(CurrentWeapon->GetPrimaryFireTimerHandle())) return;
+	if (!GunActor_Secondary->GetChildActor()) return;
 
 	if (IsWeaponPrimary) GunActor_Primary->SetVisibility(false, true);
 	else GunActor_Secondary->SetVisibility(false, true);

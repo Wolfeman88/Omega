@@ -56,6 +56,8 @@ public:
 	int32 clipSecondaryChargeMax = 2;
 	UPROPERTY(BlueprintReadWrite, Category = "Ammo")
 	int32 currentSecondaryCharges;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
+	float SecondaryRechargeTimer = 3.f;
 
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	FTimerHandle GetOldestSecondaryChargeTimer() const;
@@ -74,7 +76,7 @@ public:
 	class USoundBase* SecondaryFireSound;
 
 	/* these variables and functions handle the trigger configuration settings for the weapon */
-	UPROPERTY(BlueprintReadWrite, Category = "Weapon Configuration")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon Configuration")
 	EFireMode TriggerConfig = EFireMode::FM_Single;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Configuration")
