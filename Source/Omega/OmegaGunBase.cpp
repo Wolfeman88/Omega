@@ -226,7 +226,7 @@ bool AOmegaGunBase::SecondaryFire(const FVector& AimTarget)
 
 	// try and fire a projectile
 	if (SecondaryProjectileClass) FireProjectile(SecondaryProjectileClass, AimTarget);
-	else return false;
+	else FireHitscan(AimTarget);
 
 	// try and play the sound if specified
 	if (SecondaryFireSound) UGameplayStatics::PlaySoundAtLocation(this, SecondaryFireSound, GetActorLocation());
