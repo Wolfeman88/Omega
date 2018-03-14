@@ -328,7 +328,7 @@ private:
 	class APickup* OverlappedPickupRef;
 	bool IsOverlappingPickup = false;
 
-	float InitialLeanDisplacement = 0.f;
+	FVector InitialLeanDisplacement;
 	
 protected:
 	// APawn interface

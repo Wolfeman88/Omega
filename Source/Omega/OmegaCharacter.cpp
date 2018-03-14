@@ -90,7 +90,7 @@ void AOmegaCharacter::BeginPlay()
 	previousPosition = GetActorLocation();
 	previousRotation = GetControlRotation();
 
-	InitialLeanDisplacement = FirstPersonCameraComponent->GetRelativeTransform().GetLocation().Z;
+	InitialLeanDisplacement = FirstPersonCameraComponent->GetRelativeTransform().GetLocation();
 }
 
 void AOmegaCharacter::Tick(float DeltaSeconds)
@@ -111,6 +111,12 @@ void AOmegaCharacter::Tick(float DeltaSeconds)
 
 	if (CoverState == ECoverState::CS_COVER) HandleInCover();
 	else if (CoverState == ECoverState::CS_MOVING) HandleMovingToCover();
+
+	if (!bIsScoped) 
+	{
+		// TODO: make this behavior lerp over time, set 'target' location in "Unscope"
+		FirstPersonCameraComponent->SetRelativeLocation(InitialLeanDisplacement);
+	}
 }
 
 void AOmegaCharacter::DoCrouch()
@@ -197,9 +203,8 @@ void AOmegaCharacter::UpdateReticleState()
 {
 	FHitResult* hit = new FHitResult();
 	FCollisionQueryParams params = FCollisionQueryParams(FName(TEXT("collision query")), false, this);
-	FVector CamLoc;
-	FRotator CamRot;
-	GetActorEyesViewPoint(CamLoc, CamRot);
+	FVector CamLoc = FirstPersonCameraComponent->GetComponentTransform().GetLocation();
+	FRotator CamRot = GetControlRotation();
 
 	OverlappedPickupRef = nullptr;
 	ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_DEFAULT;
@@ -235,7 +240,7 @@ void AOmegaCharacter::UpdateReticleState()
 			}
 
 			if (false)
-			{	// TODO: NPC and Pickup classes to detect and handle reticle - not worried about this yet
+			{
 				if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
 				{
 					ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_NPC;
@@ -243,16 +248,6 @@ void AOmegaCharacter::UpdateReticleState()
 					// TODO: differentiate between talk and stealth attack reticle behavior
 					// potentially dot product of both actors forward vectors - if positive (facing away), stealth; if negative (facing), talk
 					// EViewTargetState::VTS_STEALTH
-				}
-
-				else if (GetWorld()->LineTraceSingleByObjectType(*hit, CamLoc, CamLoc + CamRot.Vector() * NPCInteractDistance, FCollisionObjectQueryParams::AllObjects, params))
-				{
-					ReticleState = (IsOverlappingPickup) ? ReticleState : EViewTargetState::VTS_OBJECT;
-					aimLocation = hit->Location;
-					// TODO: differentiate between objective, health, and ammo pickups
-					// need to make c++ classes for those pickups and if/else check
-					// EViewTargetState::VTS_HEALTH;
-					// EViewTargetState::VTS_AMMO;
 				}
 			}
 		}
@@ -347,6 +342,7 @@ void AOmegaCharacter::EnterCover()
 void AOmegaCharacter::ExitCover()
 {
 	GetCapsuleComponent()->SetCapsuleRadius(normalRadius);
+	GetCharacterMovement()->MaxWalkSpeed = normalSpeed * ((bIsCrouching) ? crouchSpeedFactor : 1.f);
 	CoverState = ECoverState::CS_NONE;
 	CoverNormalVector = FVector::ZeroVector;
 	CoverActor = nullptr;
@@ -670,9 +666,10 @@ void AOmegaCharacter::MoveForward(float Value)
 
 	if (bIsScoped && CoverState == ECoverState::CS_COVER)
 	{
+		// TODO: prevent up lean if not crouched - i.e. bIsCrouched
 		FVector currentLocation = FirstPersonCameraComponent->GetRelativeTransform().GetLocation();
-		float newZ = FMath::Clamp(currentLocation.Z + GetWorld()->GetDeltaSeconds() * LeanDisplacementMax * Value, InitialLeanDisplacement - LeanDisplacementMax, InitialLeanDisplacement + LeanDisplacementMax);
-		FirstPersonCameraComponent->SetRelativeLocation(FVector::UpVector * newZ);
+		float newZ = FMath::Clamp(currentLocation.Z + GetWorld()->GetDeltaSeconds() * 2.f * LeanDisplacementMax * Value, InitialLeanDisplacement.Z - LeanDisplacementMax, InitialLeanDisplacement.Z + LeanDisplacementMax);
+		FirstPersonCameraComponent->SetRelativeLocation(FVector(currentLocation.X, currentLocation.Y, newZ));
 
 		return;
 	}
@@ -693,9 +690,10 @@ void AOmegaCharacter::MoveRight(float Value)
 
 	if (bIsScoped && CoverState == ECoverState::CS_COVER)
 	{
+		// TODO: prevent right/left lean if cover to the right/left - i.e. dot product between cover normal and actor forwward vector is 0 and cross product z is -1 or 1
 		FVector currentLocation = FirstPersonCameraComponent->GetRelativeTransform().GetLocation();
-		float newY = FMath::Clamp(currentLocation.Y + GetWorld()->GetDeltaSeconds() * LeanDisplacementMax * Value, InitialLeanDisplacement - LeanDisplacementMax, InitialLeanDisplacement + LeanDisplacementMax);
-		FirstPersonCameraComponent->SetRelativeLocation(FVector::UpVector * newY);
+		float newY = FMath::Clamp(currentLocation.Y + GetWorld()->GetDeltaSeconds() * 2.f * LeanDisplacementMax * Value, InitialLeanDisplacement.Y - LeanDisplacementMax, InitialLeanDisplacement.Y + LeanDisplacementMax);
+		FirstPersonCameraComponent->SetRelativeLocation(FVector(currentLocation.X, newY, currentLocation.Z));
 
 		return;
 	}
