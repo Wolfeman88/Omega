@@ -105,7 +105,7 @@ protected:
 	void OnSecondaryFire();
 
 	/** activates player-specific special ability */
-	UFUNCTION(BlueprintCallable, Category = "Special")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Special")
 	void OnSpecial();
 
 	/** fires off player-specific melee ability */

@@ -617,15 +617,6 @@ void AOmegaCharacter::OnSecondaryFire()
 	}
 }
 
-void AOmegaCharacter::OnSpecial()
-{
-	// TODO: remove reference to GEngine and includes up top
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Special Ability activated!"));
-
-	// make call to character-specific special ability function
-	// e.g. duration buff, toggled mode, hold-to-engage behavior
-}
-
 void AOmegaCharacter::OnMelee()
 {
 	FHitResult* hit = new FHitResult();
