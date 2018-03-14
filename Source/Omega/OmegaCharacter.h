@@ -301,6 +301,23 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leaning", meta = (ClampMin = 0.f, ClampMax = 100.f))
 	float LeanDisplacementMax = 50.f;
 
+	/* these variables and functions handle special ability behavior */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Special")
+	float SpecialAbilityCooldown = 10.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Special")
+	float SpecialActivationTime = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Special")
+	float SpecialDuration = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Special")
+	class UTexture2D* SpecialIcon = nullptr;
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Special")
+	FTimerHandle SpecialCooldownTimer;
+	UPROPERTY(BlueprintReadWrite, Category = "Special")
+	FTimerHandle SpecialDurationTimer;
+	UPROPERTY(BlueprintReadWrite, Category = "Special")
+	FTimerHandle SpecialActivationTimer;
+
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states
 	float normalHeight = 0.f;
