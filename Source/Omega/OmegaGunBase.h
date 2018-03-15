@@ -39,6 +39,8 @@ public:
 	virtual bool SecondaryFire(const FVector& AimTarget);
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	virtual void AddCharge();
+	UFUNCTION(BlueprintCallable, Category = "Gun")
+	virtual bool SecondaryPrimaryFire(const FVector& AimTarget);
 
 	/* these functions and variables handle ammo and reloading */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo", meta = (ClampMin = "0.0", ClampMax = "3000.0"))

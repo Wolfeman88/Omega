@@ -253,7 +253,8 @@ bool AOmegaGunBase::SecondaryFire(const FVector& AimTarget)
 
 	// try and fire a projectile
 	if (SecondaryProjectileClass) FireProjectile(SecondaryProjectileClass, AimTarget);
-	else FireHitscan(AimTarget);
+	else if (currentClipAmmo == 0) return false;
+	else SecondaryPrimaryFire(AimTarget);
 
 	// try and play the sound if specified
 	if (SecondaryFireSound) UGameplayStatics::PlaySoundAtLocation(this, SecondaryFireSound, GetActorLocation());
@@ -284,4 +285,26 @@ void AOmegaGunBase::AddCharge()
 	currentSecondaryCharges++;
 	SecondaryChargeTimers[0]->Invalidate();
 	SecondaryChargeTimers.RemoveAt(0);
+}
+
+bool AOmegaGunBase::SecondaryPrimaryFire(const FVector & AimTarget)
+{
+	if (ReloadTimer.IsValid())
+	{
+		return false;
+	}
+	else if (currentClipAmmo == 0)
+	{
+		StartReload();
+		return false;
+	}
+
+	// try and fire a projectile
+	if (ProjectileClass) FireProjectile(ProjectileClass, AimTarget);
+	else FireHitscan(AimTarget);
+
+	// check if reload necessary
+	if (--currentClipAmmo == 0) StartReload();
+
+	return true;
 }
