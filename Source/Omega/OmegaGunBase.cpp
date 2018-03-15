@@ -24,12 +24,14 @@ AOmegaGunBase::AOmegaGunBase()
 void AOmegaGunBase::ResetIsAbleToFire()
 {
 	IsAbleToFire = true;
-
+	AutoFireCount = 0;
 	if (OwningPlayerRef && IsTriggerHeld) PrimaryFire(OwningPlayerRef->GetAimLocation());
 }
 
 void AOmegaGunBase::AutomaticFire()
 {
+	AutoFireCount++;
+
 	if (!IsTriggerHeld)
 	{
 		PrimaryFireRateTimerHandle.Invalidate();
@@ -38,13 +40,27 @@ void AOmegaGunBase::AutomaticFire()
 	else
 	{
 		IsAbleToFire = true;
-		PrimaryFire(OwningPlayerRef->GetAimLocation());
+
+		FVector PlayerAimLocation = OwningPlayerRef->GetAimLocation();
+		if ((AutoFireRate < SingleFireRate) && (AutoFireCount > AutoFireSpreadThreshold))
+		{
+			FVector AimRotation = OwningPlayerRef->GetControlRotation().Vector();
+			FVector AimUpVector = UKismetMathLibrary::Cross_VectorVector(AimRotation, OwningPlayerRef->GetActorRightVector());
+			FVector AimRightVector = UKismetMathLibrary::Cross_VectorVector(AimRotation, OwningPlayerRef->GetActorUpVector());
+			float YSpread = FMath::RandRange(-MaxAutoFireSpread, MaxAutoFireSpread);
+			float ZSpread = FMath::RandRange(-MaxAutoFireSpread, MaxAutoFireSpread);
+
+			PlayerAimLocation = PlayerAimLocation + (AimUpVector * ZSpread) + (AimRightVector * YSpread);
+		}
+
+		PrimaryFire(PlayerAimLocation);
 		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::AutomaticFire, AutoFireRate);
 	}
 }
 
 void AOmegaGunBase::BurstFire()
 {
+	AutoFireCount++;
 	BurstRemaining--;
 
 	if (BurstRemaining == 0 && IsBurstActive)
@@ -56,7 +72,18 @@ void AOmegaGunBase::BurstFire()
 	else
 	{
 		IsAbleToFire = true;
-		PrimaryFire(OwningPlayerRef->GetAimLocation());
+
+		FVector PlayerAimLocation = OwningPlayerRef->GetAimLocation();
+		if (AutoFireRate < SingleFireRate)
+		{
+			FVector AimRotation = OwningPlayerRef->GetControlRotation().Vector();
+			FVector AimUpVector = UKismetMathLibrary::Cross_VectorVector(AimRotation, OwningPlayerRef->GetActorRightVector());
+			float ZSpread = FMath::RandRange(-MaxAutoFireSpread, MaxAutoFireSpread);
+
+			PlayerAimLocation = PlayerAimLocation + (AimUpVector * (BurstFireSpread * AutoFireCount));
+		}
+
+		PrimaryFire(PlayerAimLocation);
 		GetWorldTimerManager().SetTimer(PrimaryFireRateTimerHandle, this, &AOmegaGunBase::BurstFire, AutoFireRate);
 	}
 }

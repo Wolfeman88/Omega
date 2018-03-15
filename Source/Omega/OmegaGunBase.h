@@ -103,6 +103,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gun")
 	FTimerHandle GetPrimaryFireTimerHandle();
 
+	/* these variables and functions handle the recoil/spread behavior for the weapon */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Spread")
+	float BurstFireSpread = 5.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Spread")
+	int AutoFireSpreadThreshold = 3;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon Spread")
+	float MaxAutoFireSpread = 30.f;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -120,4 +129,6 @@ protected:
 private:
 	AOmegaCharacter* OwningPlayerRef = nullptr;
 	FTimerHandle PrimaryFireRateTimerHandle;
+
+	int AutoFireCount = 0;
 };
