@@ -317,6 +317,8 @@ protected:
 	FTimerHandle SpecialDurationTimer;
 	UPROPERTY(BlueprintReadWrite, Category = "Special")
 	FTimerHandle SpecialActivationTimer;
+	UPROPERTY(BlueprintReadWrite, Category = "Special")
+	bool IsSpecialReady = true;
 
 private:
 	// original character values for reset after leaving sprint/crouch/aim/etc. states
